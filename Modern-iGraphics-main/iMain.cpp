@@ -16,7 +16,7 @@ int windowedPosY = 100;
 #include <mmsystem.h>
 #include <string.h>
 
-//
+
 #define MAX_ENEMIES 10
 #define ENEMY_VANISH_DELAY 5
 
@@ -26,7 +26,6 @@ int enemyVanishTimer[MAX_ENEMIES] = {0};
 int enemySpawnTimer = 0;
 int score = 0;
 int lives = 3;
-//
 
 int tileWidth = 64;
 int tileHeight = 64;
@@ -201,7 +200,6 @@ void playMusic(char *filename, int loop)
     {
         iLoadFramesFromSheet(idleMonster, "IDLE.png", 1, 10);
         iLoadFramesFromSheet(walkMonster, "RUN.png", 1, 16);
-        // iLoadFramesFromSheet(jumpMonster, "assets/images/sprites/1 Pink_Monster/Pink_Monster_Jump_8.png", 1, 8);
         iLoadFramesFromSheet(attackMonster, "ATTACK.png", 1, 7);
         iLoadFramesFromSheet(enemy, "Demon.png", 1, 12);
 
@@ -224,7 +222,6 @@ void playMusic(char *filename, int loop)
         switch (animState)
         {
         case IDLE_ANIM:
-            // If left/right is held, move camera and player
             if (moveLeft) {
                 if (direction == 1) {
                     iMirrorSprite(&monster, HORIZONTAL);
@@ -254,7 +251,7 @@ void playMusic(char *filename, int loop)
             // Animate walk faster (call twice per update)
             iAnimateSprite(&monster);
             iAnimateSprite(&monster);
-            // If no movement key is held, return to idle
+            iAnimateSprite(&monster);
             if (!moveLeft && !moveRight) {
                 animState = IDLE_ANIM;
                 iChangeSpriteFrames(&monster, idleMonster, 10);
@@ -264,8 +261,9 @@ void playMusic(char *filename, int loop)
             // Animate attack faster (call twice per update)
             iAnimateSprite(&monster);
             iAnimateSprite(&monster);
+            iAnimateSprite(&monster);
             static int attackFrame = 0;
-            attackFrame += 2; // Increase by 2 for faster attack
+            attackFrame += 2;
             if (attackFrame >= 7)
             {
                 animState = IDLE_ANIM;
@@ -274,7 +272,6 @@ void playMusic(char *filename, int loop)
             }
             break;
         case JUMP_ANIM:
-            // No-op for now, handled in physics below
             break;
         }
         if (animState == JUMP_ANIM || monster.y > 0)
@@ -295,7 +292,7 @@ void playMusic(char *filename, int loop)
         }
     }
 
-    //
+    
     void spawnEnemy()
 {
     for (int i = 0; i < MAX_ENEMIES; i++)
@@ -306,13 +303,11 @@ void playMusic(char *filename, int loop)
             iChangeSpriteFrames(&enemies[i], enemy, 12);
             iSetSpritePosition(&enemies[i], 500-i, 25);
             iScaleSprite(&enemies[i], 1.0);
-            //enemies[i].x = -1;
             enemyActive[i] = true;
             break;
         }
     }
 }
-//
     void resetGameState()
     {
         sprite_x = 43;
@@ -346,7 +341,6 @@ void playMusic(char *filename, int loop)
     iWrapImage(&bg, -speed);
     else if(moveLeft)
     iWrapImage(&bg, speed);
-    //cameraX = 0;
     //drawTiles();
     iSetColor(0, 0, 0);
     iFilledRectangle(-cameraX, 0, 800, 50);
@@ -383,7 +377,6 @@ void updateEnemy()
         {
             iAnimateSprite(&enemies[i]);
             enemies[i].x -= 2;
-            // Fix: compare both in world coordinates
             int playerWorldX = sprite_x + cameraX;
             if (enemyVanishTimer[i] == 0 && abs(enemies[i].x - playerWorldX) < 40 && abs(enemies[i].y - monster.y) < 60) {
                 lives--;
@@ -449,14 +442,11 @@ void updateEnemy()
             iSetColor(0, 0, 0);
             iFilledRectangle(0, 0, 800, 500);
 
-            // Center the death image at the top middle
             int deathImgWidth = 80;
             int deathImgHeight = 50;
             int deathImgX = (800 - deathImgWidth) / 2;
-            int deathImgY = 430; // Top margin (adjust as needed)
+            int deathImgY = 430;
             iShowLoadedImage(deathImgX, deathImgY, &death);
-
-            // Show player's score and name on death screen
             iSetTransparentColor(255, 255, 255, 0.5);
             char deathScoreText[64];
             sprintf(deathScoreText, "Game Over!\n %s\n SCORE: %d", playerName, score);
@@ -505,7 +495,6 @@ void updateEnemy()
                 iMirrorSprite(&monster, HORIZONTAL);
                 direction = -1;
             }
-            // sprite_x -= 10;
             if (sprite_x > 0)
             {
                 sprite_x -= 5;
