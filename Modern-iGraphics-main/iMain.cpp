@@ -58,7 +58,7 @@ bool moveRight = false;
 
 // Stone system variables
 int stone_x = 800;
-int stone_y = 30; // ground level
+int stone_y = 25; // ground level
 int stone_width = 64;
 int stone_height = 64;
 int stone_active = 1;
@@ -81,6 +81,7 @@ int tilemap[9][12] = {
 typedef enum
 {
     START_SCREEN,
+    NAME_INPUT_STATE,
     MENU_STATE,
     PLAYING_STATE,
     CONTROL_STATE,
@@ -109,8 +110,8 @@ int direction = 1; // 1 for right, -1 for left
 int isMusicOn = 1;
 char *currentMusic = NULL;
 
-Image idleMonster[4], walkMonster[6], jumpMonster[8], attackMonster[7]; // , enemy[12];
-Sprite monster, demon;                                                  // , enemy sprite commented out
+Image idleMonster[4], walkMonster[6], jumpMonster[8], attackMonster[7];
+Sprite monster, demon;
 
 typedef struct
 {
@@ -134,7 +135,7 @@ void handleMenuClick(int mx, int my);
 void handlePlayerMovement(unsigned char key);
 void resetGameState();
 void playMusic(char *filename, int loop);
-// void stopMusic();
+void stopMusic();
 void changeGameState(GameState newState);
 void updateCamera();
 
@@ -213,7 +214,7 @@ void loadResources()
     // iLoadFramesFromSheet(enemy, "Demon.png", 1, 12);
     iLoadImage(&bg, "BG.bmp");
     iLoadImage(&stone, "stone.PNG");
-    iResizeImage(&stone, stone.width / 2, stone.height / 2); // Make stone half size
+    iResizeImage(&stone, stone.width / 2, stone.height / 2);
     iInitSprite(&monster, -1);
     iChangeSpriteFrames(&monster, idleMonster, 10);
     iSetSpritePosition(&monster, 20, 0);
@@ -247,7 +248,8 @@ void updateMonster()
         }
         break;
     case JUMP_ANIM:
-        // No special handling needed
+        iAnimateSprite(&monster);
+        break;
         break;
     }
     if (animState == JUMP_ANIM || monster.y > 0)
@@ -435,7 +437,6 @@ void drawGameScreen()
 void iDraw()
 {
     iClear();
-
     switch (currentGameState)
     {
     case START_SCREEN:
@@ -443,6 +444,15 @@ void iDraw()
         break;
     case MENU_STATE:
         iShowImage(0, 0, homemenu);
+        break;
+    case NAME_INPUT_STATE:
+        iClear();
+        iSetColor(0, 0, 0);
+        iFilledRectangle(0, 0, windowedWidth, windowedHeight);
+        iSetColor(255, 255, 255);
+        iText(100, 350, "ENTER YOUR NAME:", GLUT_BITMAP_TIMES_ROMAN_24);
+        iText(350, 350, playerName, GLUT_BITMAP_HELVETICA_18);
+        iText(300, 20, "Press ENTER to continue", GLUT_BITMAP_9_BY_15);
         break;
     case PLAYING_STATE:
         drawGameScreen();
@@ -482,10 +492,15 @@ void handleMenuClick(int mx, int my)
         Button btn = menuButtons[i];
         if (mx >= btn.x1 && mx <= btn.x2 && my >= btn.y1 && my <= btn.y2)
         {
-            currentGameState = btn.targetState;
             if (btn.targetState == PLAYING_STATE)
             {
-                resetGameState();
+                nameCharIndex = 0;
+                playerName[0] = '\0';
+                currentGameState = NAME_INPUT_STATE;
+            }
+            else
+            {
+                currentGameState = btn.targetState;
             }
             return;
         }
@@ -572,6 +587,25 @@ void iMouse(int button, int state, int mx, int my)
 
 void iKeyboard(unsigned char key)
 {
+    if (currentGameState == NAME_INPUT_STATE)
+    {
+        if ((key >= 32 && key <= 126) && nameCharIndex < 30)
+        {
+            playerName[nameCharIndex++] = key;
+            playerName[nameCharIndex] = '\0';
+        }
+        else if (key == 8 && nameCharIndex > 0)
+        { // Backspace
+            nameCharIndex--;
+            playerName[nameCharIndex] = '\0';
+        }
+        else if (key == 13 && nameCharIndex > 0)
+        { // Enter
+            resetGameState();
+            currentGameState = PLAYING_STATE;
+        }
+        return;
+    }
     switch (key)
     {
     case ' ':
