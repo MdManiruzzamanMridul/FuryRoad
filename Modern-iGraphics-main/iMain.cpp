@@ -46,12 +46,16 @@ int speed = 3;
 char startScreenBg[] = "start_bg.bmp";
 char homemenu[] = "Menu.bmp";
 Image stone;
+Image rockEasy, rockMedium, rockHard;
 // char bg[] = "BG.bmp";
 char control[] = "Controls.bmp";
 char tile[] = "Tile.bmp";
 char death[] = "death.bmp";
 char credits[] = "Credits.bmp";
 char difficulty[] = "Difficulty.bmp";
+
+Image slimeImg;
+int obstacleType = 0; // 0: rock, 1: slime
 
 char menuMusic[] = "Main.wav";
 char gameMusic[] = "Game.wav";
@@ -217,8 +221,17 @@ void loadResources()
     iLoadFramesFromSheet(attackMonster, "ATTACK.png", 1, 7);
     // iLoadFramesFromSheet(enemy, "Demon.png", 1, 12);
     iLoadImage(&bg, "BG.bmp");
-    iLoadImage(&stone, "stone.PNG");
-    iResizeImage(&stone, stone.width / 2, stone.height / 1.5); // Make stone half size
+    iLoadImage(&rockEasy, "rock0.png");
+    iLoadImage(&rockMedium, "rock1.png");
+    iLoadImage(&rockHard, "rock2.png");
+    // Default stone image for compatibility
+    // iLoadImage(&stone, "stone.PNG");
+    iResizeImage(&rockEasy, rockEasy.width / 2, rockEasy.height / 1.5);
+    iResizeImage(&rockMedium, rockMedium.width / 2, rockMedium.height / 1.5);
+    iResizeImage(&rockHard, rockHard.width / 2, rockHard.height);
+
+    iLoadImage(&slimeImg, "Slime.png");
+    iResizeImage(&slimeImg, slimeImg.width * 4, slimeImg.height * 4);
     iInitSprite(&monster, -1);
     iChangeSpriteFrames(&monster, idleMonster, 10);
     iSetSpritePosition(&monster, 20, 0);
@@ -311,22 +324,25 @@ void resetGameState()
     // Set difficulty defaults
     if (difficultyLevel == 1)
     {
-        speed = 1;
+        speed = 1.5;
         stone_y = 30;
         rockAmount = 1;
     }
     else if (difficultyLevel == 2)
     {
-        speed = 2;
+        speed = 2.5;
         stone_y = 30;
         rockAmount = 1;
     }
     else if (difficultyLevel == 3)
     {
-        speed = 3;
+        speed = 3.5;
         stone_y = 30;
         rockAmount = 1;
     }
+
+    // Randomize first obstacle type
+    obstacleType = rand() % 2;
 }
 
 void drawStartScreen()
@@ -359,7 +375,22 @@ void drawGameScreen()
     {
         int rx = stone_x - cameraX - r * 200; // space rocks apart
         int ry = stone_y;
-        iShowLoadedImage(rx, 50, &stone);
+        // Ignore white color (255,255,255) for transparency
+        if (obstacleType == 0)
+        {
+            // Rock
+            if (difficultyLevel == 1)
+                iShowLoadedImage(rx, 50, &rockEasy);
+            else if (difficultyLevel == 2)
+                iShowLoadedImage(rx, 50, &rockMedium);
+            else if (difficultyLevel == 3)
+                iShowLoadedImage(rx, 50, &rockHard);
+        }
+        else
+        {
+            // Slime
+            iShowLoadedImage(rx, 50, &slimeImg);
+        }
         // Move stone to the left (simulate world movement)
         if (stone_active == 1)
         {
@@ -383,6 +414,7 @@ void drawGameScreen()
                 lives--;
                 stone_active = 0;
                 stone_x = 700 + rand() % 200; // Respawn stone
+                obstacleType = rand() % 2;    // Randomize next obstacle
                 // Reset monster position to initial area
                 sprite_x = 43;
                 monster.y = 0;
@@ -398,6 +430,7 @@ void drawGameScreen()
             {
                 stone_x = 700 + rand() % 200; // 700 to 900
                 stone_active = 1;
+                obstacleType = rand() % 2; // Randomize next obstacle
             }
         }
         else
@@ -412,13 +445,8 @@ void drawGameScreen()
     char livesText[32];
     sprintf(livesText, "Lives: %d", lives);
     iText(650, 420, livesText, GLUT_BITMAP_HELVETICA_18);
-    if (moveRight)
-    {
-        iWrapImage(&bg, -speed);
-    }
-    // if(moveLeft){
-    //     iWrapImage(&bg, +speed);
-    // PlaySound(filename, NULL, SND_ASYNC | SND_FILENAME | (loop ? SND_LOOP : 0));
+    // Always move background left and loop
+    iWrapImage(&bg, -speed);
 }
 
 // void updateEnemy()
