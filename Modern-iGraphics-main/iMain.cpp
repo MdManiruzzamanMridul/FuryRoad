@@ -318,14 +318,14 @@ void resetGameState()
     else if (difficultyLevel == 2)
     {
         speed = 2;
-        stone_y = 80;
-        rockAmount = 2;
+        stone_y = 30;
+        rockAmount = 1;
     }
     else if (difficultyLevel == 3)
     {
         speed = 3;
-        stone_y = 120;
-        rockAmount = 3;
+        stone_y = 30;
+        rockAmount = 1;
     }
 }
 
@@ -359,7 +359,7 @@ void drawGameScreen()
     {
         int rx = stone_x - cameraX - r * 200; // space rocks apart
         int ry = stone_y;
-        iShowLoadedImage(rx, ry, &stone);
+        iShowLoadedImage(rx, 50, &stone);
         // Move stone to the left (simulate world movement)
         if (stone_active == 1)
         {
@@ -535,6 +535,8 @@ void iDraw()
         iText(350, 240, "Restart", GLUT_BITMAP_HELVETICA_18);
         iSetColor(0, 255, 0);
         iText(350, 200, "Main Menu", GLUT_BITMAP_HELVETICA_18);
+        iSetColor(255, 255, 0);
+        iText(350, 160, "Difficulty", GLUT_BITMAP_HELVETICA_18);
         break;
     case EXIT_STATE:
         exit(0);
@@ -624,21 +626,21 @@ void iMouse(int button, int state, int mx, int my)
                 {
                     difficultyLevel = 1;
                     resetGameState();
-                    changeGameState(MENU_STATE);
+                    currentGameState = PLAYING_STATE;
                 }
                 // Medium: x=300 to 380, y=240 to 260
                 else if (mx >= 300 && mx <= 380 && my >= 240 && my <= 260)
                 {
                     difficultyLevel = 2;
                     resetGameState();
-                    changeGameState(MENU_STATE);
+                    currentGameState = PLAYING_STATE;
                 }
                 // Hard: x=300 to 380, y=200 to 220
                 else if (mx >= 300 && mx <= 380 && my >= 200 && my <= 220)
                 {
                     difficultyLevel = 3;
                     resetGameState();
-                    changeGameState(MENU_STATE);
+                    currentGameState = PLAYING_STATE;
                 }
                 break;
             case CREDITS_STATE:
@@ -678,6 +680,11 @@ void iMouse(int button, int state, int mx, int my)
                 {
                     resetGameState();
                     changeGameState(MENU_STATE);
+                }
+                // Difficulty button: x=350-20 to 350+120, y=160-10 to 160+20
+                else if (mx >= 350 && mx <= 470 && my >= 160 && my <= 180)
+                {
+                    changeGameState(DIFFICULTY_STATE);
                 }
                 break;
             case START_SCREEN:
