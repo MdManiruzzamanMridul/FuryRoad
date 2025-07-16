@@ -311,19 +311,19 @@ void resetGameState()
     // Set difficulty defaults
     if (difficultyLevel == 1)
     {
-        speed = 2;
+        speed = 1;
         stone_y = 30;
         rockAmount = 1;
     }
     else if (difficultyLevel == 2)
     {
-        speed = 4;
+        speed = 2;
         stone_y = 80;
         rockAmount = 2;
     }
     else if (difficultyLevel == 3)
     {
-        speed = 6;
+        speed = 3;
         stone_y = 120;
         rockAmount = 3;
     }
