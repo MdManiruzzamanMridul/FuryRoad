@@ -1,8 +1,6 @@
 #include "OpenGL/include/glut.h"
 
 // Fullscreen toggle state
-int difficultyLevel = 1; // 1: Easy, 2: Medium, 3: Hard
-int rockAmount = 1;
 int isFullscreen = 0; // Removed stray 'oop' line
 int windowedWidth = 800;
 int windowedHeight = 500;
@@ -17,7 +15,6 @@ int windowedPosY = 100;
 char playerName[32] = "";
 int nameCharIndex = 0;
 int score = 0;
-void autoIncreaseScore();
 int lives = 3;
 
 //
@@ -61,7 +58,7 @@ bool moveRight = false;
 
 // Stone system variables
 int stone_x = 800;
-int stone_y = 30; // ground level
+int stone_y = 25; // ground level
 int stone_width = 64;
 int stone_height = 64;
 int stone_active = 1;
@@ -113,8 +110,8 @@ int direction = 1; // 1 for right, -1 for left
 int isMusicOn = 1;
 char *currentMusic = NULL;
 
-Image idleMonster[4], walkMonster[6], jumpMonster[8], attackMonster[7]; // , enemy[12];
-Sprite monster, demon;                                                  // , enemy sprite commented out
+Image idleMonster[4], walkMonster[6], jumpMonster[8], attackMonster[7];
+Sprite monster, demon;
 
 typedef struct
 {
@@ -138,7 +135,7 @@ void handleMenuClick(int mx, int my);
 void handlePlayerMovement(unsigned char key);
 void resetGameState();
 void playMusic(char *filename, int loop);
-// void stopMusic();
+void stopMusic();
 void changeGameState(GameState newState);
 void updateCamera();
 
@@ -153,25 +150,24 @@ void updateCamera()
         cameraX = maxCameraX;
 }
 
-// void playMusic(char *filename, int loop)
-// {
-//     if (!isMusicOn)
-//         return;
-//     if (currentMusic == NULL || strcmp(currentMusic, filename) != 0)
-//     {
-//         stopMusic();
-//         currentMusic = filename;
-//         wchar_t wfilename[256];
-//         MultiByteToWideChar(CP_ACP, 0, filename, -1, wfilename, 256);
-//         PlaySound(wfilename, NULL, SND_ASYNC | SND_FILENAME | (loop ? SND_LOOP : 0));
-//     }
-// }
+void stopMusic();
+void playMusic(char *filename, int loop)
+{
+    if (!isMusicOn)
+        return;
+    if (currentMusic == NULL || strcmp(currentMusic, filename) != 0)
+    {
+        stopMusic();
+        currentMusic = filename;
+        PlaySoundA(filename, NULL, SND_ASYNC | SND_FILENAME | (loop ? SND_LOOP : 0));
+    }
+}
 
-// void stopMusic()
-// {
-//     PlaySound(NULL, NULL, 0);
-//     currentMusic = NULL;
-// }
+void stopMusic()
+{
+    PlaySound(NULL, NULL, 0);
+    currentMusic = NULL;
+}
 
 void drawTiles()
 {
@@ -192,14 +188,14 @@ void changeGameState(GameState newState)
     switch (newState)
     {
     case MENU_STATE:
-        // playMusic(menuMusic, 1);
+        playMusic(menuMusic, 1);
         break;
     case PLAYING_STATE:
     case PAUSED_STATE:
-        // playMusic(gameMusic, 1);
+        playMusic(gameMusic, 1);
         break;
     case CREDITS_STATE:
-        // playMusic(creditsMusic, 1);
+        playMusic(creditsMusic, 1);
         break;
     default:
         break;
@@ -218,7 +214,7 @@ void loadResources()
     // iLoadFramesFromSheet(enemy, "Demon.png", 1, 12);
     iLoadImage(&bg, "BG.bmp");
     iLoadImage(&stone, "stone.PNG");
-    iResizeImage(&stone, stone.width / 2, stone.height / 1.5); // Make stone half size
+    iResizeImage(&stone, stone.width / 2, stone.height / 2);
     iInitSprite(&monster, -1);
     iChangeSpriteFrames(&monster, idleMonster, 10);
     iSetSpritePosition(&monster, 20, 0);
@@ -246,13 +242,14 @@ void updateMonster()
         attackFrame += 2;
         if (attackFrame >= 7)
         {
-            animState = WALK_ANIM;
-            iChangeSpriteFrames(&monster, walkMonster, 10);
+            animState = IDLE_ANIM;
+            iChangeSpriteFrames(&monster, idleMonster, 10);
             attackFrame = 0;
         }
         break;
     case JUMP_ANIM:
-        // No special handling needed
+        iAnimateSprite(&monster);
+        break;
         break;
     }
     if (animState == JUMP_ANIM || monster.y > 0)
@@ -293,6 +290,7 @@ void updateMonster()
 //     }
 // }
 // //
+
 void resetGameState()
 {
     sprite_x = 43;
@@ -306,27 +304,8 @@ void resetGameState()
         enemyActive[i] = false;
         enemyVanishTimer[i] = 0;
     }
-    score = 0;
-    lives = 3;
-    // Set difficulty defaults
-    if (difficultyLevel == 1)
-    {
-        speed = 2;
-        stone_y = 30;
-        rockAmount = 1;
-    }
-    else if (difficultyLevel == 2)
-    {
-        speed = 4;
-        stone_y = 80;
-        rockAmount = 2;
-    }
-    else if (difficultyLevel == 3)
-    {
-        speed = 6;
-        stone_y = 120;
-        rockAmount = 3;
-    }
+    // score = 0;
+    // lives = 3;
 }
 
 void drawStartScreen()
@@ -354,56 +333,51 @@ void drawGameScreen()
             iShowSprite(&enemies[i]);
         }
     }
-    // Draw stones based on rockAmount
-    for (int r = 0; r < rockAmount; r++)
+    // Draw stone if active
+    if (stone_active == 1)
     {
-        int rx = stone_x - cameraX - r * 200; // space rocks apart
-        int ry = stone_y;
-        iShowLoadedImage(rx, ry, &stone);
+        iShowLoadedImage(stone_x - cameraX, 50, &stone);
         // Move stone to the left (simulate world movement)
-        if (stone_active == 1)
+        stone_x -= speed;
+        // Calculate monster and stone bounding boxes
+        int monster_left = sprite_x;
+        int monster_right = sprite_x + monsterWidth;
+        int monster_top = monster.y + monsterWidth;
+        int monster_bottom = monster.y;
+        // Central part of stone (middle 25%)
+        int stone_central_left = stone_x + stone_width * 3 / 8;
+        int stone_central_right = stone_x + stone_width * 5 / 8;
+        int stone_top = stone_y + stone_height;
+        int stone_bottom = stone_y;
+        // Only check collision if monster is on the ground
+        bool is_on_ground = (monster.y == 0);
+        bool horizontal_overlap = monster_right > stone_central_left && monster_left < stone_central_right;
+        bool collision = is_on_ground && horizontal_overlap;
+        if (collision)
         {
-            stone_x -= speed;
-            // Calculate monster and stone bounding boxes
-            int monster_left = sprite_x;
-            int monster_right = sprite_x + monsterWidth;
-            int monster_top = monster.y + monsterWidth;
-            int monster_bottom = monster.y;
-            // Central part of stone (middle 25%)
-            int stone_central_left = rx + stone_width * 3 / 8;
-            int stone_central_right = rx + stone_width * 5 / 8;
-            int stone_top = ry + stone_height;
-            int stone_bottom = ry;
-            // Only check collision if monster is on the ground
-            bool is_on_ground = (monster.y == 0);
-            bool horizontal_overlap = monster_right > stone_central_left && monster_left < stone_central_right;
-            bool collision = is_on_ground && horizontal_overlap;
-            if (collision)
+            lives--;
+            stone_active = 0;
+            stone_x = 700 + rand() % 200; // Respawn stone
+            // Reset monster position to initial area
+            sprite_x = 43;
+            monster.y = 0;
+            iSetSpritePosition(&monster, sprite_x, monster.y);
+            if (lives <= 0)
             {
-                lives--;
-                stone_active = 0;
-                stone_x = 700 + rand() % 200; // Respawn stone
-                // Reset monster position to initial area
-                sprite_x = 43;
-                monster.y = 0;
-                iSetSpritePosition(&monster, sprite_x, monster.y);
-                if (lives <= 0)
-                {
-                    currentGameState = GAME_OVER_STATE;
-                    return;
-                }
-            }
-            // If stone goes off screen, respawn
-            if (stone_x < -stone_width)
-            {
-                stone_x = 700 + rand() % 200; // 700 to 900
-                stone_active = 1;
+                currentGameState = GAME_OVER_STATE;
+                return;
             }
         }
-        else
+        // If stone goes off screen, respawn
+        if (stone_x < -stone_width)
         {
+            stone_x = 700 + rand() % 200; // 700 to 900
             stone_active = 1;
         }
+    }
+    else
+    {
+        stone_active = 1;
     }
     iSetColor(255, 255, 255);
     char scoreText[32];
@@ -463,11 +437,13 @@ void drawGameScreen()
 void iDraw()
 {
     iClear();
-
     switch (currentGameState)
     {
     case START_SCREEN:
         drawStartScreen();
+        break;
+    case MENU_STATE:
+        iShowImage(0, 0, homemenu);
         break;
     case NAME_INPUT_STATE:
         iClear();
@@ -478,9 +454,6 @@ void iDraw()
         iText(350, 350, playerName, GLUT_BITMAP_HELVETICA_18);
         iText(300, 20, "Press ENTER to continue", GLUT_BITMAP_9_BY_15);
         break;
-    case MENU_STATE:
-        iShowImage(0, 0, homemenu);
-        break;
     case PLAYING_STATE:
         drawGameScreen();
         break;
@@ -488,17 +461,7 @@ void iDraw()
         iShowImage(0, 0, control);
         break;
     case DIFFICULTY_STATE:
-        iClear();
-        iSetColor(0, 0, 0);
-        iFilledRectangle(0, 0, windowedWidth, windowedHeight);
-        iSetColor(255, 255, 255);
-        iText(300, 350, "Select Difficulty", GLUT_BITMAP_TIMES_ROMAN_24);
-        iSetColor(0, 255, 0);
-        iText(300, 280, "Easy", GLUT_BITMAP_HELVETICA_18);
-        iSetColor(255, 255, 0);
-        iText(300, 240, "Medium", GLUT_BITMAP_HELVETICA_18);
-        iSetColor(255, 0, 0);
-        iText(300, 200, "Hard", GLUT_BITMAP_HELVETICA_18);
+        iShowImage(0, 0, difficulty);
         break;
     case CREDITS_STATE:
         iShowImage(0, 0, credits);
@@ -507,34 +470,14 @@ void iDraw()
         iShowImage(0, 0, "BG.bmp");
         break;
     case GAME_OVER_STATE:
-        iClear();
-        iSetColor(0, 0, 0);
-        iFilledRectangle(0, 0, windowedWidth, windowedHeight);
-        iSetColor(255, 255, 255);
-        iText(320, 350, "GAME OVER", GLUT_BITMAP_TIMES_ROMAN_24);
-        char scoreMsg[64];
-        iSetColor(0, 0, 255);
-        sprintf(scoreMsg, "Player: %s", playerName);
-        iText(320, 320, scoreMsg, GLUT_BITMAP_HELVETICA_18);
-        sprintf(scoreMsg, "Your Score: %d", score);
-        iText(320, 300, scoreMsg, GLUT_BITMAP_HELVETICA_18);
-        iSetColor(0, 255, 0);
-        iText(320, 220, "Retry", GLUT_BITMAP_HELVETICA_18);
-        iSetColor(0, 255, 0);
-        iText(320, 180, "Menu", GLUT_BITMAP_HELVETICA_18);
+        iShowImage(0, 0, death);
         break;
     case PAUSED_STATE:
         drawGameScreen();
         iSetColor(0, 0, 0);
-        iFilledRectangle(0, 0, windowedWidth, windowedHeight);
+        iFilledRectangle(0, 0, 800, 500);
         iSetColor(255, 255, 255);
-        iText(350, 350, "PAUSED", GLUT_BITMAP_TIMES_ROMAN_24);
-        iSetColor(0, 255, 0);
-        iText(350, 280, "Resume", GLUT_BITMAP_HELVETICA_18);
-        iSetColor(0, 255, 0);
-        iText(350, 240, "Restart", GLUT_BITMAP_HELVETICA_18);
-        iSetColor(0, 255, 0);
-        iText(350, 200, "Main Menu", GLUT_BITMAP_HELVETICA_18);
+        iText(350, 250, "PAUSED", GLUT_BITMAP_TIMES_ROMAN_24);
         break;
     case EXIT_STATE:
         exit(0);
@@ -616,69 +559,17 @@ void iMouse(int button, int state, int mx, int my)
                 handleMenuClick(mx, my);
                 break;
             case CONTROL_STATE:
-                changeGameState(MENU_STATE);
-                break;
             case DIFFICULTY_STATE:
-                // Easy: x=300 to 380, y=280 to 300
-                if (mx >= 300 && mx <= 380 && my >= 280 && my <= 300)
-                {
-                    difficultyLevel = 1;
-                    resetGameState();
-                    changeGameState(MENU_STATE);
-                }
-                // Medium: x=300 to 380, y=240 to 260
-                else if (mx >= 300 && mx <= 380 && my >= 240 && my <= 260)
-                {
-                    difficultyLevel = 2;
-                    resetGameState();
-                    changeGameState(MENU_STATE);
-                }
-                // Hard: x=300 to 380, y=200 to 220
-                else if (mx >= 300 && mx <= 380 && my >= 200 && my <= 220)
-                {
-                    difficultyLevel = 3;
-                    resetGameState();
-                    changeGameState(MENU_STATE);
-                }
-                break;
             case CREDITS_STATE:
-                changeGameState(MENU_STATE);
-                break;
             case HALLOFFAME_STATE:
                 changeGameState(MENU_STATE);
                 break;
             case GAME_OVER_STATE:
-                // Retry button area: x=320-20 to 320+60, y=220-10 to 220+20
-                if (mx >= 320 && mx <= 400 && my >= 220 && my <= 240)
-                {
-                    resetGameState();
-                    currentGameState = PLAYING_STATE;
-                }
-                // Menu button area: x=320-20 to 320+60, y=180-10 to 180+20
-                else if (mx >= 320 && mx <= 400 && my >= 180 && my <= 200)
-                {
-                    resetGameState();
-                    currentGameState = MENU_STATE;
-                }
+                resetGameState();
+                changeGameState(MENU_STATE);
                 break;
             case PAUSED_STATE:
-                // Resume button: x=350-20 to 350+80, y=280-10 to 280+20
-                if (mx >= 350 && mx <= 430 && my >= 280 && my <= 300)
-                {
-                    changeGameState(PLAYING_STATE);
-                }
-                // Restart button: x=350-20 to 350+80, y=240-10 to 240+20
-                else if (mx >= 350 && mx <= 430 && my >= 240 && my <= 260)
-                {
-                    resetGameState();
-                    changeGameState(PLAYING_STATE);
-                }
-                // Main Menu button: x=350-20 to 350+120, y=200-10 to 200+20
-                else if (mx >= 350 && mx <= 470 && my >= 200 && my <= 220)
-                {
-                    resetGameState();
-                    changeGameState(MENU_STATE);
-                }
+                changeGameState(PLAYING_STATE);
                 break;
             case START_SCREEN:
                 // No action needed
@@ -750,29 +641,29 @@ void iKeyboard(unsigned char key)
         break;
     case 'm':
     case 'M':
-        // isMusicOn = !isMusicOn;
-        // if (isMusicOn)
-        // {
-        //     switch (currentGameState)
-        //     {
-        //     case MENU_STATE:
-        //         playMusic(menuMusic, 1);
-        //         break;
-        //     case PLAYING_STATE:
-        //     case PAUSED_STATE:
-        //         playMusic(gameMusic, 1);
-        //         break;
-        //     case CREDITS_STATE:
-        //         playMusic(creditsMusic, 1);
-        //         break;
-        //     default:
-        //         break;
-        //     }
-        // }
-        // else
-        // {
-        //     stopMusic();
-        // }
+        isMusicOn = !isMusicOn;
+        if (isMusicOn)
+        {
+            switch (currentGameState)
+            {
+            case MENU_STATE:
+                playMusic(menuMusic, 1);
+                break;
+            case PLAYING_STATE:
+            case PAUSED_STATE:
+                playMusic(gameMusic, 1);
+                break;
+            case CREDITS_STATE:
+                playMusic(creditsMusic, 1);
+                break;
+            default:
+                break;
+            }
+        }
+        else
+        {
+            stopMusic();
+        }
         break;
     case 'p':
     case 'P':
@@ -823,21 +714,12 @@ void iMouseMove(int mx, int my) {}
 void iMouseDrag(int mx, int my) {}
 void iMouseWheel(int dir, int mx, int my) {}
 
-void autoIncreaseScore()
-{
-    if (currentGameState == PLAYING_STATE)
-    {
-        score++;
-    }
-}
-
 int main(int argc, char *argv[])
 {
     glutInit(&argc, argv);
     loadResources();
     iSetTimer(100, updateMonster);
-    iSetTimer(2000, autoIncreaseScore); // Increase score every 2 seconds
-    // playMusic(menuMusic, 1);
+    playMusic(menuMusic, 1);
     iInitialize(windowedWidth, windowedHeight, "Hellfire");
     return 0;
 }
