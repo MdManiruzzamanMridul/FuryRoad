@@ -226,7 +226,7 @@ void loadResources()
     // iLoadImage(&stone, "stone.PNG");
     iResizeImage(&rockEasy, rockEasy.width / 2, rockEasy.height / 1.5);
     iResizeImage(&rockMedium, rockMedium.width / 2, rockMedium.height / 1.5);
-    iResizeImage(&rockHard, rockHard.width / 2, rockHard.height);
+    iResizeImage(&rockHard, rockHard.width / 2, rockHard.height/0.75);
 
     iLoadImage(&slimeImg, "Slime.png");
     iResizeImage(&slimeImg, slimeImg.width * 4, slimeImg.height * 4);
@@ -318,25 +318,28 @@ void resetGameState()
         enemyVanishTimer[i] = 0;
     }
     score = 0;
-    lives = 3;
+    lives = 5;
     // Set difficulty defaults
     if (difficultyLevel == 1)
     {
-        speed = 1.5;
+        speed = 2;
         stone_y = 30;
         rockAmount = 1;
+        jump_peak = 40; // Reduce jump height for easy mode
     }
     else if (difficultyLevel == 2)
     {
-        speed = 2.5;
+        speed = 3;
         stone_y = 30;
         rockAmount = 1;
+        jump_peak = 30;
     }
     else if (difficultyLevel == 3)
     {
-        speed = 3.5;
+        speed = 4;
         stone_y = 30;
         rockAmount = 1;
+        jump_peak = 20;
     }
 
     // Randomize first obstacle type
@@ -356,8 +359,8 @@ void drawGameScreen()
     cameraX = 0;
     // drawTiles();
     iSetColor(0, 0, 0);
-    iShowLoadedImage(0, 0, &bg);
-    iFilledRectangle(-cameraX, 0, 800, 50);
+    iShowLoadedImage(0, -20, &bg);
+    //iFilledRectangle(-cameraX, 0, 800, 50);
     iSetSpritePosition(&monster, sprite_x, monster.y);
     iShowSprite(&monster);
     for (int i = 0; i < MAX_ENEMIES; i++)
@@ -786,7 +789,8 @@ void iKeyboard(unsigned char key)
         else if (currentGameState == PLAYING_STATE && monster.y == 0)
         {
             animState = JUMP_ANIM;
-            MonstervelocityY = 32; // Increased jump velocity for higher jump
+            // Use jump_peak for jump height
+            MonstervelocityY = jump_peak;
             iChangeSpriteFrames(&monster, jumpMonster, 8);
         }
         break;
