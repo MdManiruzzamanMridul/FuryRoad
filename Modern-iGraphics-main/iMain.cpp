@@ -226,7 +226,7 @@ void loadResources()
     // iLoadImage(&stone, "stone.PNG");
     iResizeImage(&rockEasy, rockEasy.width / 2, rockEasy.height / 1.5);
     iResizeImage(&rockMedium, rockMedium.width / 2, rockMedium.height / 1.5);
-    iResizeImage(&rockHard, rockHard.width / 2, rockHard.height/0.75);
+    iResizeImage(&rockHard, rockHard.width / 2, rockHard.height*0.75);
 
     iLoadImage(&slimeImg, "Slime.png");
     iResizeImage(&slimeImg, slimeImg.width * 4, slimeImg.height * 4);
@@ -332,14 +332,14 @@ void resetGameState()
         speed = 3;
         stone_y = 30;
         rockAmount = 1;
-        jump_peak = 30;
+        jump_peak = 35;
     }
     else if (difficultyLevel == 3)
     {
         speed = 4;
         stone_y = 30;
         rockAmount = 1;
-        jump_peak = 20;
+        jump_peak = 30;
     }
 
     // Randomize first obstacle type
@@ -376,7 +376,6 @@ void drawGameScreen()
     {
         int rx = stone_x - cameraX - r * 200; // space rocks apart
         int ry = stone_y;
-        // Ignore white color (255,255,255) for transparency
         if (obstacleType == 0)
         {
             // Rock
