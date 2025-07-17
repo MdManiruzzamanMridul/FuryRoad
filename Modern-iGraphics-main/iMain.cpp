@@ -47,7 +47,7 @@ char startScreenBg[] = "start_bg.bmp";
 char homemenu[] = "Menu.bmp";
 Image stone;
 Image rockEasy, rockMedium, rockHard;
-// char bg[] = "BG.bmp";
+// char bg[] = "BG1.bmp";
 char control[] = "Controls.bmp";
 char tile[] = "Tile.bmp";
 char death[] = "death.bmp";
@@ -142,7 +142,7 @@ void handleMenuClick(int mx, int my);
 void handlePlayerMovement(unsigned char key);
 void resetGameState();
 void playMusic(char *filename, int loop);
-// void stopMusic();
+void stopMusic();
 void changeGameState(GameState newState);
 void updateCamera();
 
@@ -157,25 +157,23 @@ void updateCamera()
         cameraX = maxCameraX;
 }
 
-// void playMusic(char *filename, int loop)
-// {
-//     if (!isMusicOn)
-//         return;
-//     if (currentMusic == NULL || strcmp(currentMusic, filename) != 0)
-//     {
-//         stopMusic();
-//         currentMusic = filename;
-//         wchar_t wfilename[256];
-//         MultiByteToWideChar(CP_ACP, 0, filename, -1, wfilename, 256);
-//         PlaySound(wfilename, NULL, SND_ASYNC | SND_FILENAME | (loop ? SND_LOOP : 0));
-//     }
-// }
+void playMusic(char *filename, int loop)
+{
+    if (!isMusicOn)
+        return;
+    if (currentMusic == NULL || strcmp(currentMusic, filename) != 0)
+    {
+        stopMusic();
+        currentMusic = filename;
+        PlaySoundA(filename, NULL, SND_ASYNC | SND_FILENAME | (loop ? SND_LOOP : 0));
+    }
+}
 
-// void stopMusic()
-// {
-//     PlaySound(NULL, NULL, 0);
-//     currentMusic = NULL;
-// }
+void stopMusic()
+{
+    PlaySound(NULL, NULL, 0);
+    currentMusic = NULL;
+}
 
 void drawTiles()
 {
@@ -196,14 +194,14 @@ void changeGameState(GameState newState)
     switch (newState)
     {
     case MENU_STATE:
-        // playMusic(menuMusic, 1);
+        playMusic(menuMusic, 1);
         break;
     case PLAYING_STATE:
     case PAUSED_STATE:
-        // playMusic(gameMusic, 1);
+        playMusic(gameMusic, 1);
         break;
     case CREDITS_STATE:
-        // playMusic(creditsMusic, 1);
+        playMusic(creditsMusic, 1);
         break;
     default:
         break;
@@ -220,7 +218,7 @@ void loadResources()
     // iLoadFramesFromSheet(jumpMonster, "assets/images/sprites/1 Pink_Monster/Pink_Monster_Jump_8.png", 1, 8);
     iLoadFramesFromSheet(attackMonster, "ATTACK.png", 1, 7);
     // iLoadFramesFromSheet(enemy, "Demon.png", 1, 12);
-    iLoadImage(&bg, "BG.bmp");
+    iLoadImage(&bg, "BG1.bmp");
     iLoadImage(&rockEasy, "rock0.png");
     iLoadImage(&rockMedium, "rock1.png");
     iLoadImage(&rockHard, "rock2.png");
@@ -391,29 +389,57 @@ void drawGameScreen()
             // Slime
             iShowLoadedImage(rx, 50, &slimeImg);
         }
-        // Move stone to the left (simulate world movement)
+        // Move obstacle to the left (simulate world movement)
         if (stone_active == 1)
         {
             stone_x -= speed;
-            // Calculate monster and stone bounding boxes
+            // Calculate monster and obstacle bounding boxes
             int monster_left = sprite_x;
             int monster_right = sprite_x + monsterWidth;
             int monster_top = monster.y + monsterWidth;
             int monster_bottom = monster.y;
-            // Central part of stone (middle 25%)
-            int stone_central_left = rx + stone_width * 3 / 8;
-            int stone_central_right = rx + stone_width * 5 / 8;
-            int stone_top = ry + stone_height;
-            int stone_bottom = ry;
+            int obs_left, obs_right, obs_top, obs_bottom;
+            if (obstacleType == 0)
+            {
+                // Rock: central part of stone (middle 25%)
+                obs_left = rx + stone_width * 3 / 8;
+                obs_right = rx + stone_width * 5 / 8;
+                obs_top = ry + stone_height;
+                obs_bottom = ry;
+            }
+            else
+            {
+                // Slime: use full bounding box
+                obs_left = rx;
+                obs_right = rx + slimeImg.width;
+                obs_top = ry + slimeImg.height;
+                obs_bottom = ry;
+            }
             // Only check collision if monster is on the ground
             bool is_on_ground = (monster.y == 0);
-            bool horizontal_overlap = monster_right > stone_central_left && monster_left < stone_central_right;
+            bool horizontal_overlap = monster_right > obs_left && monster_left < obs_right;
             bool collision = is_on_ground && horizontal_overlap;
             if (collision)
             {
-                lives--;
+                if (obstacleType == 0)
+                {
+                    // Rock: lose life
+                    lives--;
+                }
+                else
+                {
+                    // Slime: only lose life if not attacking
+                    if (animState == ATTACK_ANIM)
+                    {
+                        // Remove slime
+                    }
+                    else
+                    {
+                        lives--;
+                    }
+                }
                 stone_active = 0;
-                stone_x = 700 + rand() % 200; // Respawn stone
+                stone_x = 700 + rand() % 200; // Respawn obstacle
                 obstacleType = rand() % 2;    // Randomize next obstacle
                 // Reset monster position to initial area
                 sprite_x = 43;
@@ -425,7 +451,7 @@ void drawGameScreen()
                     return;
                 }
             }
-            // If stone goes off screen, respawn
+            // If obstacle goes off screen, respawn
             if (stone_x < -stone_width)
             {
                 stone_x = 700 + rand() % 200; // 700 to 900
@@ -532,7 +558,7 @@ void iDraw()
         iShowImage(0, 0, credits);
         break;
     case HALLOFFAME_STATE:
-        iShowImage(0, 0, "BG.bmp");
+        iShowImage(0, 0, "BG1.bmp");
         break;
     case GAME_OVER_STATE:
         iClear();
@@ -785,29 +811,29 @@ void iKeyboard(unsigned char key)
         break;
     case 'm':
     case 'M':
-        // isMusicOn = !isMusicOn;
-        // if (isMusicOn)
-        // {
-        //     switch (currentGameState)
-        //     {
-        //     case MENU_STATE:
-        //         playMusic(menuMusic, 1);
-        //         break;
-        //     case PLAYING_STATE:
-        //     case PAUSED_STATE:
-        //         playMusic(gameMusic, 1);
-        //         break;
-        //     case CREDITS_STATE:
-        //         playMusic(creditsMusic, 1);
-        //         break;
-        //     default:
-        //         break;
-        //     }
-        // }
-        // else
-        // {
-        //     stopMusic();
-        // }
+        isMusicOn = !isMusicOn;
+        if (isMusicOn)
+        {
+            switch (currentGameState)
+            {
+            case MENU_STATE:
+                playMusic(menuMusic, 1);
+                break;
+            case PLAYING_STATE:
+            case PAUSED_STATE:
+                playMusic(gameMusic, 1);
+                break;
+            case CREDITS_STATE:
+                playMusic(creditsMusic, 1);
+                break;
+            default:
+                break;
+            }
+        }
+        else
+        {
+            stopMusic();
+        }
         break;
     case 'p':
     case 'P':
@@ -872,7 +898,7 @@ int main(int argc, char *argv[])
     loadResources();
     iSetTimer(100, updateMonster);
     iSetTimer(2000, autoIncreaseScore); // Increase score every 2 seconds
-    // playMusic(menuMusic, 1);
+    playMusic(menuMusic, 1);
     iInitialize(windowedWidth, windowedHeight, "Hellfire");
     return 0;
 }
