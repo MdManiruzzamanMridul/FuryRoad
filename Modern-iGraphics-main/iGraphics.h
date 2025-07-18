@@ -22,7 +22,7 @@
 #include <math.h>
 #include <dirent.h>
 #include <sys/stat.h>
-// #include "glaux.h"
+/* #include "glaux.h" -- glaux.h is deprecated and not required */
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
