@@ -1,3 +1,4 @@
+int attackWindow = 0;
 #include "OpenGL/include/glut.h"
 
 // Fullscreen toggle state
@@ -17,7 +18,123 @@ int windowedPosY = 100;
 char playerName[32] = "";
 int nameCharIndex = 0;
 int score = 0;
+int attack = 3; // Max 3 attacks
 void autoIncreaseScore();
+
+// High score structure
+typedef struct
+{
+    char name[32];
+    int score;
+} HighScoreEntry;
+
+#define MAX_HIGHSCORES 100
+HighScoreEntry highScores[MAX_HIGHSCORES];
+int highScoreCount = 0;
+
+void loadHighScores()
+{
+    FILE *f = fopen("saves/names.txt", "r");
+    highScoreCount = 0;
+    if (!f)
+        return;
+    while (fscanf(f, "%31s %d", highScores[highScoreCount].name, &highScores[highScoreCount].score) == 2)
+    {
+        // Check for duplicate name with same score, skip if found
+        int found = -1;
+        for (int i = 0; i < highScoreCount; i++)
+        {
+            if (strcmp(highScores[i].name, highScores[highScoreCount].name) == 0 && highScores[i].score == highScores[highScoreCount].score)
+            {
+                found = i;
+                break;
+            }
+        }
+        if (found == -1)
+        {
+            highScoreCount++;
+        }
+        if (highScoreCount >= MAX_HIGHSCORES)
+            break;
+    }
+    fclose(f);
+    // Sort descending
+    for (int i = 0; i < highScoreCount - 1; i++)
+    {
+        for (int j = i + 1; j < highScoreCount; j++)
+        {
+            if (highScores[j].score > highScores[i].score)
+            {
+                HighScoreEntry tmp = highScores[i];
+                highScores[i] = highScores[j];
+                highScores[j] = tmp;
+            }
+        }
+    }
+}
+void saveHighScores()
+{
+    FILE *f = fopen("saves/names.txt", "w");
+    if (!f)
+        return;
+    int n = highScoreCount < 3 ? highScoreCount : 3;
+    for (int i = 0; i < n; i++)
+    {
+        fprintf(f, "%s %d\n", highScores[i].name, highScores[i].score);
+    }
+    fclose(f);
+}
+
+void updateHighScores(const char *name, int newScore)
+{
+    loadHighScores();
+    // Check if player already exists
+    int found = -1;
+    for (int i = 0; i < highScoreCount; i++)
+    {
+        if (strcmp(highScores[i].name, name) == 0)
+        {
+            found = i;
+            break;
+        }
+    }
+    if (found != -1)
+    {
+        // If new score is higher, update
+        if (newScore > highScores[found].score)
+        {
+            highScores[found].score = newScore;
+        }
+    }
+    else
+    {
+        // Add new entry
+        if (highScoreCount < MAX_HIGHSCORES)
+        {
+            strncpy(highScores[highScoreCount].name, name, 31);
+            highScores[highScoreCount].name[31] = '\0';
+            highScores[highScoreCount].score = newScore;
+            highScoreCount++;
+        }
+    }
+    // Resort descending
+    for (int i = 0; i < highScoreCount - 1; i++)
+    {
+        for (int j = i + 1; j < highScoreCount; j++)
+        {
+            if (highScores[j].score > highScores[i].score)
+            {
+                HighScoreEntry tmp = highScores[i];
+                highScores[i] = highScores[j];
+                highScores[j] = tmp;
+            }
+        }
+    }
+    // Only keep top 3
+    if (highScoreCount > 3)
+        highScoreCount = 3;
+    saveHighScores();
+}
 int lives = 3;
 
 //
@@ -41,7 +158,7 @@ int cameraSpeed = 10;
 const int screenWidth = 800;
 const int screenHeight = 600;
 const int monsterWidth = 95;
-Image bg;
+Image bg, bg2, bg3;
 int speed = 3;
 char startScreenBg[] = "start_bg.bmp";
 char homemenu[] = "Menu.bmp";
@@ -105,7 +222,8 @@ typedef enum
     IDLE_ANIM,
     WALK_ANIM,
     JUMP_ANIM,
-    ATTACK_ANIM
+    ATTACK_ANIM,
+    HURT_ANIM
 } AnimationState;
 
 GameState currentGameState = START_SCREEN;
@@ -117,8 +235,9 @@ int direction = 1; // 1 for right, -1 for left
 int isMusicOn = 1;
 char *currentMusic = NULL;
 
-Image idleMonster[4], walkMonster[6], jumpMonster[8], attackMonster[7]; // , enemy[12];
-Sprite monster, demon;                                                  // , enemy sprite commented out
+Image idleMonster[4], walkMonster[6], jumpMonster[8], attackMonster[7], hurtMonster[4]; // , enemy[12];
+Image startScreenBgImg;
+Sprite monster, demon; // , enemy sprite commented out
 
 typedef struct
 {
@@ -214,25 +333,46 @@ void drawStartScreen();
 void loadResources()
 {
     iLoadFramesFromSheet(idleMonster, "IDLE.png", 1, 10);
+
     iLoadFramesFromSheet(walkMonster, "RUN.png", 1, 16);
-    // iLoadFramesFromSheet(jumpMonster, "assets/images/sprites/1 Pink_Monster/Pink_Monster_Jump_8.png", 1, 8);
+
+    // iLoadFramesFromSheet(jumpMonster, "JUMP.png", 1, 8); // Make sure JUMP.png exists
+
     iLoadFramesFromSheet(attackMonster, "ATTACK.png", 1, 7);
+
     // iLoadFramesFromSheet(enemy, "Demon.png", 1, 12);
-    iLoadImage(&bg, "BG1.bmp");
+    iLoadFramesFromSheet(hurtMonster, "HURT.png", 1, 4); // Load hurt frames
+    iLoadImage(&bg, "BG.bmp");
+    printf("Loaded BG.bmp: %dx%d\n", bg.width, bg.height);
+    iLoadImage(&bg2, "BG2.bmp");
+    printf("Loaded BG2.bmp: %dx%d\n", bg2.width, bg2.height);
+    iResizeImage(&bg2, 800, 500);
+    iLoadImage(&bg3, "BG3.bmp");
+    printf("Loaded BG3.bmp: %dx%d\n", bg3.width, bg3.height);
+
     iLoadImage(&rockEasy, "rock0.png");
+
     iLoadImage(&rockMedium, "rock1.png");
+
     iLoadImage(&rockHard, "rock2.png");
+
     // Default stone image for compatibility
     // iLoadImage(&stone, "stone.PNG");
     iResizeImage(&rockEasy, rockEasy.width / 2, rockEasy.height / 1.5);
+
     iResizeImage(&rockMedium, rockMedium.width / 2, rockMedium.height / 1.5);
+
     iResizeImage(&rockHard, rockHard.width / 2, rockHard.height * 0.75);
 
+    iLoadImage(&startScreenBgImg, startScreenBg);
+
     iLoadImage(&slimeImg, "Slime.png");
+
     iResizeImage(&slimeImg, slimeImg.width * 4, slimeImg.height * 4);
     iInitSprite(&monster, -1);
     iChangeSpriteFrames(&monster, idleMonster, 10);
     iSetSpritePosition(&monster, 20, 0);
+
     iScaleSprite(&monster, 3);
 
     iInitSprite(&demon, -1);
@@ -262,26 +402,37 @@ void updateMonster()
             attackFrame = 0;
         }
         break;
+    case HURT_ANIM:
+        iAnimateSprite(&monster);
+        static int hurtFrame = 0;
+        hurtFrame++;
+        if (hurtFrame >= 8) // Show hurt for 8 frames
+        {
+            animState = WALK_ANIM;
+            iChangeSpriteFrames(&monster, walkMonster, 10);
+            hurtFrame = 0;
+        }
+        break;
     case JUMP_ANIM:
         // No special handling needed
         break;
     }
+    // Decrement attack window if active
+    if (attackWindow > 0)
+        attackWindow--;
     if (animState == JUMP_ANIM || monster.y > 0)
     {
-        // Smoother jump: lower initial velocity, higher gravity
+        // Floatier jump: increased initial velocity, gentler gravity
         monster.y += MonstervelocityY;
-        MonstervelocityY -= 4; // gravity stronger for less float
-
+        MonstervelocityY -= 4; // gentler gravity for floatier jump
         if (monster.y <= 0)
         {
             monster.y = 0;
             MonstervelocityY = 0;
-            // After landing, set to WALK_ANIM so character keeps running
             animState = WALK_ANIM;
             iChangeSpriteFrames(&monster, walkMonster, 10);
             jump = false;
         }
-
         iAnimateSprite(&monster);
     }
 }
@@ -325,30 +476,30 @@ void resetGameState()
         speed = 3;
         stone_y = 30;
         rockAmount = 1;
-        jump_peak = 40; // Reduce jump height for easy mode
+        jump_peak = 40; // Much higher jump for easy mode
     }
     else if (difficultyLevel == 2)
     {
         speed = 4.5;
         stone_y = 30;
         rockAmount = 1;
-        jump_peak = 35;
+        jump_peak = 30; // Much higher jump for medium mode
     }
     else if (difficultyLevel == 3)
     {
         speed = 6;
         stone_y = 30;
         rockAmount = 1;
-        jump_peak = 30;
+        jump_peak = 25; // Much higher jump for hard mode
     }
-
+    attack = 3; // Reset attack to max
     // Randomize first obstacle type
     obstacleType = rand() % 2;
 }
 
 void drawStartScreen()
 {
-    iShowImage(0, 0, startScreenBg);
+    iShowLoadedImage(0, 0, &startScreenBgImg);
     iSetColor(255, 255, 255); // White text
     iText(250, 50, "Press SPACE to Play Game", GLUT_BITMAP_TIMES_ROMAN_24);
 }
@@ -357,10 +508,39 @@ void drawGameScreen()
 {
 
     cameraX = 0;
+    // Smooth speed increase, capped at a max value
+    float baseSpeed, speedFactor, maxSpeed;
+    if (difficultyLevel == 1)
+    {
+        baseSpeed = 3.0f;
+        speedFactor = 0.01f;
+        maxSpeed = 7.0f;
+    }
+    else if (difficultyLevel == 2)
+    {
+        baseSpeed = 4.5f;
+        speedFactor = 0.015f;
+        maxSpeed = 9.0f;
+    }
+    else
+    {
+        baseSpeed = 6.0f;
+        speedFactor = 0.02f;
+        maxSpeed = 12.0f;
+    }
+    speed = baseSpeed + speedFactor * score;
+    if (speed > maxSpeed)
+        speed = maxSpeed;
     // drawTiles();
     iSetColor(0, 0, 0);
-    iShowLoadedImage(0, -20, &bg);
-    // iFilledRectangle(-cameraX, 0, 800, 50);
+    // Select background based on difficulty
+    if (difficultyLevel == 1)
+        iShowLoadedImage(0, -20, &bg);
+    else if (difficultyLevel == 2)
+        iShowLoadedImage(0, -20, &bg2);
+    else if (difficultyLevel == 3)
+        iShowLoadedImage(0, -20, &bg3);
+    iFilledRectangle(-cameraX, 0, 800, 50);
     iSetSpritePosition(&monster, sprite_x, monster.y);
     iShowSprite(&monster);
     for (int i = 0; i < MAX_ENEMIES; i++)
@@ -371,11 +551,11 @@ void drawGameScreen()
             iShowSprite(&enemies[i]);
         }
     }
+    // (Remove this block, logic will be handled in collision below)
     // Draw stones based on rockAmount
     for (int r = 0; r < rockAmount; r++)
     {
         int rx = stone_x - cameraX - r * 200; // space rocks apart
-        int ry = stone_y;
         if (obstacleType == 0)
         {
             // Rock
@@ -395,12 +575,13 @@ void drawGameScreen()
         if (stone_active == 1)
         {
             stone_x -= speed;
-            // Calculate monster and obstacle bounding boxes
+            // Restore previous collision logic: rocks use central 25%, slimes use full bounding box
             int monster_left = sprite_x;
             int monster_right = sprite_x + monsterWidth;
             int monster_top = monster.y + monsterWidth;
             int monster_bottom = monster.y;
             int obs_left, obs_right, obs_top, obs_bottom;
+            int ry = 50; // obstacle y position (fixed)
             if (obstacleType == 0)
             {
                 // Rock: central part of stone (middle 25%)
@@ -423,34 +604,66 @@ void drawGameScreen()
             bool collision = is_on_ground && horizontal_overlap;
             if (collision)
             {
-                if (obstacleType == 0)
+                bool lost_life = false;
+                if (obstacleType == 0) // Only for rocks/bricks/stones
                 {
-                    // Rock: lose life
-                    lives--;
-                }
-                else
-                {
-                    // Slime: only lose life if not attacking
-                    if (animState == ATTACK_ANIM)
+                    // If attacking, break the rock and prevent collision
+                    if (attackWindow > 0 && attack > 0)
                     {
-                        // Remove slime
+                        stone_active = 0;
+                        stone_x = 700 + rand() % 200; // Respawn obstacle
+                        obstacleType = rand() % 2;    // Randomize next obstacle
+                        score += 5;
+                        attack--;         // Only decrement attack when rock is broken
+                        attackWindow = 0; // Prevent multiple decrements for same rock
+                        // Do not lose life, do not trigger hurt animation
+                        return;
                     }
                     else
                     {
+                        // Not attacking: lose life
                         lives--;
+                        lost_life = true;
                     }
                 }
-                stone_active = 0;
-                stone_x = 700 + rand() % 200; // Respawn obstacle
-                obstacleType = rand() % 2;    // Randomize next obstacle
-                // Reset monster position to initial area
-                sprite_x = 43;
-                monster.y = 0;
-                iSetSpritePosition(&monster, sprite_x, monster.y);
-                if (lives <= 0)
+                else // For slimes
                 {
-                    currentGameState = GAME_OVER_STATE;
-                    return;
+                    // If attacking, remove slime and prevent collision
+                    if (attackWindow > 0 && attack > 0)
+                    {
+                        stone_active = 0;
+                        stone_x = 700 + rand() % 200; // Respawn obstacle
+                        obstacleType = rand() % 2;    // Randomize next obstacle
+                        score += 5;
+                        attack--;
+                        attackWindow = 0;
+                        // Do not lose life, do not trigger hurt animation
+                        return;
+                    }
+                    else
+                    {
+                        // Not attacking: lose life
+                        lives--;
+                        lost_life = true;
+                    }
+                }
+                if (lost_life)
+                {
+                    stone_active = 0;
+                    stone_x = 700 + rand() % 200; // Respawn obstacle
+                    obstacleType = rand() % 2;    // Randomize next obstacle
+                    // Reset monster position to initial area
+                    sprite_x = 43;
+                    monster.y = 0;
+                    iSetSpritePosition(&monster, sprite_x, monster.y);
+                    // Switch to hurt animation
+                    animState = HURT_ANIM;
+                    iChangeSpriteFrames(&monster, hurtMonster, 4);
+                    if (lives <= 0)
+                    {
+                        currentGameState = GAME_OVER_STATE;
+                        return;
+                    }
                 }
             }
             // If obstacle goes off screen, respawn
@@ -473,8 +686,24 @@ void drawGameScreen()
     char livesText[32];
     sprintf(livesText, "Lives: %d", lives);
     iText(650, 420, livesText, GLUT_BITMAP_HELVETICA_18);
+    char attackText[32];
+    sprintf(attackText, "Attack: %d", attack);
+    iText(650, 390, attackText, GLUT_BITMAP_HELVETICA_18);
     // Always move background left and loop
-    iWrapImage(&bg, -speed);
+    // Background speed matches obstacle speed for difficulty
+    float bgSpeed = speed;
+    if (difficultyLevel == 1)
+    {
+        iWrapImage(&bg, -bgSpeed);
+    }
+    else if (difficultyLevel == 2)
+    {
+        iWrapImage(&bg2, -bgSpeed);
+    }
+    else if (difficultyLevel == 3)
+    {
+        iWrapImage(&bg3, -bgSpeed);
+    }
 }
 
 // void updateEnemy()
@@ -560,11 +789,26 @@ void iDraw()
         iShowImage(0, 0, credits);
         break;
     case HALLOFFAME_STATE:
-        iShowImage(0, 0, "BG1.bmp");
+        iShowImage(0, 0, "BG.bmp");
+        loadHighScores();
+        iSetColor(255, 215, 0); // Gold
+        iText(320, 400, "Hall of Fame - Top 3", GLUT_BITMAP_TIMES_ROMAN_24);
+        iSetColor(255, 255, 255);
+        for (int i = 0; i < 3 && i < highScoreCount; i++)
+        {
+            char entry[64];
+            sprintf(entry, "%d. %s - %d", i + 1, highScores[i].name, highScores[i].score);
+            iText(320, 360 - i * 40, entry, GLUT_BITMAP_HELVETICA_18);
+        }
+        if (highScoreCount == 0)
+        {
+            iText(320, 320, "No scores yet!", GLUT_BITMAP_HELVETICA_18);
+        }
         break;
     case GAME_OVER_STATE:
         iClear();
         iSetColor(0, 0, 0);
+
         iFilledRectangle(0, 0, windowedWidth, windowedHeight);
         iSetColor(255, 255, 255);
         iText(320, 350, "GAME OVER", GLUT_BITMAP_TIMES_ROMAN_24);
@@ -574,6 +818,8 @@ void iDraw()
         iText(320, 320, scoreMsg, GLUT_BITMAP_HELVETICA_18);
         sprintf(scoreMsg, "Your Score: %d", score);
         iText(320, 300, scoreMsg, GLUT_BITMAP_HELVETICA_18);
+
+        updateHighScores(playerName, score);
         iSetColor(0, 255, 0);
         iText(320, 220, "Retry", GLUT_BITMAP_HELVETICA_18);
         iSetColor(0, 255, 0);
@@ -625,22 +871,6 @@ void handleMenuClick(int mx, int my)
 void handlePlayerMovement(unsigned char key)
 {
     // Left and right arrow key input disabled
-    // Calculate monster and stone bounding boxes
-    int monster_left = sprite_x;
-    int monster_right = sprite_x + monsterWidth;
-    int monster_top = monster.y + monsterWidth; // or monster.y + monsterHeight if you have it
-    int monster_bottom = monster.y;
-
-    int stone_left = stone_x;
-    int stone_right = stone_x + stone_width;
-    int stone_top = stone_y + stone_height;
-    int stone_bottom = stone_y;
-
-    // Check collision
-    bool collision = monster_right > stone_left &&
-                     monster_left < stone_right &&
-                     monster_top > stone_bottom &&
-                     monster_bottom < stone_top;
 }
 
 void iMouse(int button, int state, int mx, int my)
@@ -649,9 +879,13 @@ void iMouse(int button, int state, int mx, int my)
     {
         if (currentGameState == PLAYING_STATE)
         {
-
-            animState = ATTACK_ANIM;
-            iChangeSpriteFrames(&monster, attackMonster, 7);
+            if (attack > 0)
+            {
+                animState = ATTACK_ANIM;
+                iChangeSpriteFrames(&monster, attackMonster, 7);
+                attackWindow = 8; // Attack duration is 8 frames (more forgiving)
+            }
+            // Enemy hit logic (does not consume attack)
             for (int i = 0; i < MAX_ENEMIES; i++)
             {
                 if (enemyActive[i])
@@ -659,7 +893,8 @@ void iMouse(int button, int state, int mx, int my)
                     int hitbox = 60;
                     if (abs(enemies[i].x - sprite_x) <= hitbox)
                     {
-                        enemyVanishTimer[i] = ENEMY_VANISH_DELAY;
+                        enemyActive[i] = false; // Make enemy disappear immediately
+                        enemyVanishTimer[i] = 0;
                         // score += 1;
                         break;
                     }
@@ -682,21 +917,21 @@ void iMouse(int button, int state, int mx, int my)
                 {
                     difficultyLevel = 1;
                     resetGameState();
-                    currentGameState = PLAYING_STATE;
+                    currentGameState = NAME_INPUT_STATE;
                 }
                 // Medium: x=300 to 380, y=240 to 260
                 else if (mx >= 300 && mx <= 380 && my >= 240 && my <= 260)
                 {
                     difficultyLevel = 2;
                     resetGameState();
-                    currentGameState = PLAYING_STATE;
+                    currentGameState = NAME_INPUT_STATE;
                 }
                 // Hard: x=300 to 380, y=200 to 220
                 else if (mx >= 300 && mx <= 380 && my >= 200 && my <= 220)
                 {
                     difficultyLevel = 3;
                     resetGameState();
-                    currentGameState = PLAYING_STATE;
+                    currentGameState = NAME_INPUT_STATE;
                 }
                 break;
             case CREDITS_STATE:
@@ -744,6 +979,9 @@ void iMouse(int button, int state, int mx, int my)
                 }
                 break;
             case START_SCREEN:
+                // No action needed
+                break;
+            case NAME_INPUT_STATE:
                 // No action needed
                 break;
             case PLAYING_STATE:
