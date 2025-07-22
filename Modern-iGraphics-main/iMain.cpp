@@ -159,6 +159,7 @@ const int screenWidth = 800;
 const int screenHeight = 600;
 const int monsterWidth = 95;
 Image bg, bg2, bg3;
+Image trapImg;
 int speed = 3;
 char startScreenBg[] = "start_bg.bmp";
 char homemenu[] = "Menu.bmp";
@@ -186,6 +187,12 @@ int stone_y = 30; // ground level
 int stone_width = 64;
 int stone_height = 64;
 int stone_active = 1;
+// Trap system variables
+int trap_x = 900;
+int trap_y = 0; // ground level
+int trap_width = 64;
+int trap_height = 64;
+int trap_active = 1;
 
 #define ROWS 10
 #define COLS 15
@@ -213,6 +220,7 @@ typedef enum
     DIFFICULTY_STATE,
     HALLOFFAME_STATE,
     PAUSED_STATE,
+    DEATH_MESSAGE_STATE,
     GAME_OVER_STATE,
     EXIT_STATE
 } GameState;
@@ -331,7 +339,12 @@ void changeGameState(GameState newState)
 void drawStartScreen();
 
 void loadResources()
+
 {
+    iLoadImage(&trapImg, "trap.png");
+    iResizeImage(&trapImg, trapImg.width * 2, trapImg.height * 2); // Make trap larger
+    trap_width = trapImg.width;
+    trap_height = trapImg.height;
     iLoadFramesFromSheet(idleMonster, "IDLE.png", 1, 10);
 
     iLoadFramesFromSheet(walkMonster, "RUN.png", 1, 16);
@@ -344,8 +357,8 @@ void loadResources()
     iLoadFramesFromSheet(hurtMonster, "HURT.png", 1, 4); // Load hurt frames
     iLoadImage(&bg, "BG.bmp");
     printf("Loaded BG.bmp: %dx%d\n", bg.width, bg.height);
-    iLoadImage(&bg2, "BG2.bmp");
-    printf("Loaded BG2.bmp: %dx%d\n", bg2.width, bg2.height);
+    iLoadImage(&bg2, "BG1.bmp");
+    printf("Loaded BG1.bmp: %dx%d\n", bg2.width, bg2.height);
     iResizeImage(&bg2, 800, 500);
     iLoadImage(&bg3, "BG3.bmp");
     printf("Loaded BG3.bmp: %dx%d\n", bg3.width, bg3.height);
@@ -543,6 +556,45 @@ void drawGameScreen()
     else if (difficultyLevel == 3)
         iShowLoadedImage(0, -20, &bg3);
     iFilledRectangle(-cameraX, 0, 800, 50);
+    // Draw trap.png randomly like stone
+    if (trap_active == 1)
+    {
+        iShowLoadedImage(trap_x - cameraX, 45, &trapImg);
+        trap_x -= speed;
+        // Trap collision logic
+        int monster_left = sprite_x;
+        int monster_right = sprite_x + monsterWidth;
+        int trap_left = trap_x;
+        int trap_right = trap_x + trap_width;
+        bool is_on_ground = (monster.y == 0);
+        bool trap_collision = is_on_ground && (monster_right > trap_left && monster_left < trap_right) && (monster.y <= trap_y + trap_height);
+        if (trap_collision)
+        {
+            lives--;
+            trap_active = 0;
+            trap_x = 900 + rand() % 200;
+            // Hurt animation
+            sprite_x = 43;
+            monster.y = 0;
+            iSetSpritePosition(&monster, sprite_x, monster.y);
+            animState = HURT_ANIM;
+            iChangeSpriteFrames(&monster, hurtMonster, 4);
+            if (lives <= 0)
+            {
+                currentGameState = DEATH_MESSAGE_STATE;
+                return;
+            }
+        }
+        if (trap_x < -trap_width)
+        {
+            trap_x = 900 + rand() % 200;
+            trap_active = 1;
+        }
+    }
+    else
+    {
+        trap_active = 1;
+    }
     iSetSpritePosition(&monster, sprite_x, monster.y);
     iShowSprite(&monster);
     for (int i = 0; i < MAX_ENEMIES; i++)
@@ -607,28 +659,13 @@ void drawGameScreen()
             if (collision)
             {
                 bool lost_life = false;
-                if (obstacleType == 0) // Only for rocks/bricks/stones
+                if (obstacleType == 0) // Rock/stone: not attackable
                 {
-                    // If attacking, break the rock and prevent collision
-                    if (attackWindow > 0 && attack > 0)
-                    {
-                        stone_active = 0;
-                        stone_x = 700 + rand() % 200; // Respawn obstacle
-                        obstacleType = rand() % 2;    // Randomize next obstacle
-                        score += 5;
-                        attack--;         // Only decrement attack when rock is broken
-                        attackWindow = 0; // Prevent multiple decrements for same rock
-                        // Do not lose life, do not trigger hurt animation
-                        return;
-                    }
-                    else
-                    {
-                        // Not attacking: lose life
-                        lives--;
-                        lost_life = true;
-                    }
+                    // Always lose life on collision with rock
+                    lives--;
+                    lost_life = true;
                 }
-                else // For slimes
+                else // Slime: attackable
                 {
                     // If attacking, remove slime and prevent collision
                     if (attackWindow > 0 && attack > 0)
@@ -663,7 +700,7 @@ void drawGameScreen()
                     iChangeSpriteFrames(&monster, hurtMonster, 4);
                     if (lives <= 0)
                     {
-                        currentGameState = GAME_OVER_STATE;
+                        currentGameState = DEATH_MESSAGE_STATE;
                         return;
                     }
                 }
@@ -791,25 +828,38 @@ void iDraw()
         iShowImage(0, 0, credits);
         break;
     case HALLOFFAME_STATE:
-        iShowImage(0, 0, "BG.bmp");
+        iShowImage(0, 0, "BG4.bmp");
         loadHighScores();
-        iSetColor(255, 215, 0); // Gold
-        iText(320, 400, "Hall of Fame - Top 3", GLUT_BITMAP_TIMES_ROMAN_24);
-        iSetColor(255, 255, 255);
-        for (int i = 0; i < 3 && i < highScoreCount; i++)
+        iSetColor(0, 0, 0);
+        iText(300, 400, "Hall of Fame - Top 7", GLUT_BITMAP_TIMES_ROMAN_24);
+        iSetColor(0, 0, 0);
+        for (int i = 0; i < 7 && i < highScoreCount; i++)
         {
             char entry[64];
             sprintf(entry, "%d. %s - %d", i + 1, highScores[i].name, highScores[i].score);
-            iText(320, 360 - i * 40, entry, GLUT_BITMAP_HELVETICA_18);
+            iText(300, 360 - i * 40, entry, GLUT_BITMAP_HELVETICA_18);
         }
         if (highScoreCount == 0)
         {
             iText(320, 320, "No scores yet!", GLUT_BITMAP_HELVETICA_18);
         }
         break;
+    case DEATH_MESSAGE_STATE:
+        iClear();
+        iSetColor(0, 0, 255);
+        iText(250, 250, "<Death is the only way out>", GLUT_BITMAP_TIMES_ROMAN_24);
+        break;
     case GAME_OVER_STATE:
         iClear();
         iShowImage(0, 0, death); // Show 800x500 death.bmp image
+        // Show player name and score in front of death.bmp
+        iSetColor(255, 255, 255); // Black text for visibility
+        char nameText[64];
+        sprintf(nameText, "%s", playerName);
+        iText(420, 160, nameText, GLUT_BITMAP_TIMES_ROMAN_24);
+        char scoreText[64];
+        sprintf(scoreText, "%d", score);
+        iText(400, 115, scoreText, GLUT_BITMAP_TIMES_ROMAN_24);
         updateHighScores(playerName, score);
         break;
     case PAUSED_STATE:
@@ -851,6 +901,45 @@ void handleMenuClick(int mx, int my)
                 currentGameState = btn.targetState;
             }
             return;
+        }
+    }
+    // Difficulty selection
+    if (currentGameState == DIFFICULTY_STATE)
+    {
+        if (mx >= 300 && mx <= 380 && my >= 280 && my <= 300)
+        {
+            difficultyLevel = 1;
+            nameCharIndex = 0;
+            playerName[0] = '\0';
+            resetGameState();
+            currentGameState = NAME_INPUT_STATE;
+        }
+        else if (mx >= 300 && mx <= 380 && my >= 240 && my <= 260)
+        {
+            difficultyLevel = 2;
+            nameCharIndex = 0;
+            playerName[0] = '\0';
+            resetGameState();
+            currentGameState = NAME_INPUT_STATE;
+        }
+        else if (mx >= 300 && mx <= 380 && my >= 200 && my <= 220)
+        {
+            difficultyLevel = 3;
+            nameCharIndex = 0;
+            playerName[0] = '\0';
+            resetGameState();
+            currentGameState = NAME_INPUT_STATE;
+        }
+    }
+    // Retry from GAME_OVER_STATE
+    if (currentGameState == GAME_OVER_STATE)
+    {
+        if (mx >= 75 && mx <= 250 && my >= 10 && my <= 50)
+        {
+            nameCharIndex = 0;
+            playerName[0] = '\0';
+            resetGameState();
+            currentGameState = NAME_INPUT_STATE;
         }
     }
 }
@@ -903,6 +992,8 @@ void iMouse(int button, int state, int mx, int my)
                 if (mx >= 300 && mx <= 380 && my >= 280 && my <= 300)
                 {
                     difficultyLevel = 1;
+                    nameCharIndex = 0;
+                    playerName[0] = '\0';
                     resetGameState();
                     currentGameState = NAME_INPUT_STATE;
                 }
@@ -910,6 +1001,8 @@ void iMouse(int button, int state, int mx, int my)
                 else if (mx >= 300 && mx <= 380 && my >= 240 && my <= 260)
                 {
                     difficultyLevel = 2;
+                    nameCharIndex = 0;
+                    playerName[0] = '\0';
                     resetGameState();
                     currentGameState = NAME_INPUT_STATE;
                 }
@@ -917,6 +1010,8 @@ void iMouse(int button, int state, int mx, int my)
                 else if (mx >= 300 && mx <= 380 && my >= 200 && my <= 220)
                 {
                     difficultyLevel = 3;
+                    nameCharIndex = 0;
+                    playerName[0] = '\0';
                     resetGameState();
                     currentGameState = NAME_INPUT_STATE;
                 }
@@ -931,6 +1026,8 @@ void iMouse(int button, int state, int mx, int my)
                 // Retry button area: x=320-20 to 320+60, y=220-10 to 220+20
                 if (mx >= 75 && mx <= 250 && my >= 10 && my <= 50)
                 {
+                    nameCharIndex = 0;
+                    playerName[0] = '\0';
                     resetGameState();
                     currentGameState = PLAYING_STATE;
                 }
@@ -950,8 +1047,10 @@ void iMouse(int button, int state, int mx, int my)
                 // Restart button: x=350-20 to 350+80, y=240-10 to 240+20
                 else if (mx >= 350 && mx <= 430 && my >= 240 && my <= 260)
                 {
+                    nameCharIndex = 0;
+                    playerName[0] = '\0';
                     resetGameState();
-                    changeGameState(PLAYING_STATE);
+                    currentGameState = NAME_INPUT_STATE;
                 }
                 // Main Menu button: x=350-20 to 350+120, y=200-10 to 200+20
                 else if (mx >= 350 && mx <= 470 && my >= 200 && my <= 220)
@@ -998,9 +1097,16 @@ void iKeyboard(unsigned char key)
         }
         else if (key == 13 && nameCharIndex > 0)
         { // Enter
+            nameCharIndex = 0;
+            // Do NOT reset playerName here, only reset game state
             resetGameState();
             currentGameState = PLAYING_STATE;
         }
+        return;
+    }
+    if (currentGameState == DEATH_MESSAGE_STATE)
+    {
+        currentGameState = GAME_OVER_STATE;
         return;
     }
     switch (key)
