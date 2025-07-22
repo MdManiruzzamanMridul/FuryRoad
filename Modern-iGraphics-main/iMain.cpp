@@ -469,10 +469,10 @@ void resetGameState()
         enemyVanishTimer[i] = 0;
     }
     score = 0;
-    lives = 5;
     // Set difficulty defaults
     if (difficultyLevel == 1)
     {
+        lives = 5; // Easy
         speed = 3;
         stone_y = 30;
         rockAmount = 1;
@@ -480,14 +480,16 @@ void resetGameState()
     }
     else if (difficultyLevel == 2)
     {
-        speed = 4.5;
+        lives = 3; // Medium
+        speed = 5;
         stone_y = 30;
         rockAmount = 1;
         jump_peak = 30; // Much higher jump for medium mode
     }
     else if (difficultyLevel == 3)
     {
-        speed = 6;
+        lives = 2; // Hard
+        speed = 7;
         stone_y = 30;
         rockAmount = 1;
         jump_peak = 25; // Much higher jump for hard mode
@@ -518,13 +520,13 @@ void drawGameScreen()
     }
     else if (difficultyLevel == 2)
     {
-        baseSpeed = 4.5f;
+        baseSpeed = 5.0f;
         speedFactor = 0.015f;
         maxSpeed = 9.0f;
     }
     else
     {
-        baseSpeed = 6.0f;
+        baseSpeed = 7.0f;
         speedFactor = 0.02f;
         maxSpeed = 12.0f;
     }
@@ -807,23 +809,8 @@ void iDraw()
         break;
     case GAME_OVER_STATE:
         iClear();
-        iSetColor(0, 0, 0);
-
-        iFilledRectangle(0, 0, windowedWidth, windowedHeight);
-        iSetColor(255, 255, 255);
-        iText(320, 350, "GAME OVER", GLUT_BITMAP_TIMES_ROMAN_24);
-        char scoreMsg[64];
-        iSetColor(0, 0, 255);
-        sprintf(scoreMsg, "Player: %s", playerName);
-        iText(320, 320, scoreMsg, GLUT_BITMAP_HELVETICA_18);
-        sprintf(scoreMsg, "Your Score: %d", score);
-        iText(320, 300, scoreMsg, GLUT_BITMAP_HELVETICA_18);
-
+        iShowImage(0, 0, death); // Show 800x500 death.bmp image
         updateHighScores(playerName, score);
-        iSetColor(0, 255, 0);
-        iText(320, 220, "Retry", GLUT_BITMAP_HELVETICA_18);
-        iSetColor(0, 255, 0);
-        iText(320, 180, "Menu", GLUT_BITMAP_HELVETICA_18);
         break;
     case PAUSED_STATE:
         drawGameScreen();
@@ -942,13 +929,13 @@ void iMouse(int button, int state, int mx, int my)
                 break;
             case GAME_OVER_STATE:
                 // Retry button area: x=320-20 to 320+60, y=220-10 to 220+20
-                if (mx >= 320 && mx <= 400 && my >= 220 && my <= 240)
+                if (mx >= 75 && mx <= 250 && my >= 10 && my <= 50)
                 {
                     resetGameState();
                     currentGameState = PLAYING_STATE;
                 }
                 // Menu button area: x=320-20 to 320+60, y=180-10 to 180+20
-                else if (mx >= 320 && mx <= 400 && my >= 180 && my <= 200)
+                else if (mx >= 505 && mx <= 730 && my >= 10 && my <= 50)
                 {
                     resetGameState();
                     currentGameState = MENU_STATE;
