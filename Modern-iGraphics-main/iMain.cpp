@@ -160,6 +160,7 @@ const int screenHeight = 600;
 const int monsterWidth = 95;
 Image bg, bg2, bg3;
 Image trapImg;
+Image icon;
 int speed = 3;
 char startScreenBg[] = "start_bg.bmp";
 char homemenu[] = "Menu.bmp";
@@ -341,6 +342,8 @@ void drawStartScreen();
 void loadResources()
 
 {
+    iLoadImage(&icon, "char.png");
+    iResizeImage(&icon, 180, 110);
     iLoadImage(&trapImg, "trap.png");
     iResizeImage(&trapImg, trapImg.width * 2, trapImg.height * 2); // Make trap larger
     trap_width = trapImg.width;
@@ -493,7 +496,7 @@ void resetGameState()
     }
     else if (difficultyLevel == 2)
     {
-        lives = 3; // Medium
+        lives = 4; // Medium
         speed = 5;
         stone_y = 30;
         rockAmount = 1;
@@ -501,7 +504,7 @@ void resetGameState()
     }
     else if (difficultyLevel == 3)
     {
-        lives = 2; // Hard
+        lives = 3; // Hard
         speed = 7;
         stone_y = 30;
         rockAmount = 1;
@@ -673,7 +676,7 @@ void drawGameScreen()
                         stone_active = 0;
                         stone_x = 700 + rand() % 200; // Respawn obstacle
                         obstacleType = rand() % 2;    // Randomize next obstacle
-                        score += 5;
+                        score += 15;
                         attack--;
                         attackWindow = 0;
                         // Do not lose life, do not trigger hurt animation
@@ -718,16 +721,21 @@ void drawGameScreen()
             stone_active = 1;
         }
     }
+
+    // Show 100x100 char.png at right uppermost corner
+    iShowLoadedImage(620, 390, &icon);
     iSetColor(255, 255, 255);
     char scoreText[32];
-    sprintf(scoreText, "Score: %d", score);
-    iText(650, 450, scoreText, GLUT_BITMAP_TIMES_ROMAN_24);
+    sprintf(scoreText, "%d", score);
+    iText(650, 416, scoreText, GLUT_BITMAP_TIMES_ROMAN_24);
     char livesText[32];
-    sprintf(livesText, "Lives: %d", lives);
-    iText(650, 420, livesText, GLUT_BITMAP_HELVETICA_18);
-    char attackText[32];
-    sprintf(attackText, "Attack: %d", attack);
-    iText(650, 390, attackText, GLUT_BITMAP_HELVETICA_18);
+    sprintf(livesText, "%d", lives);
+    iText(680, 454, livesText, GLUT_BITMAP_TIMES_ROMAN_24);
+
+    // char attackText[32];
+    // sprintf(attackText, "Attack: %d", attack);
+    // iText(650, 390, attackText, GLUT_BITMAP_HELVETICA_18);
+
     // Always move background left and loop
     // Background speed matches obstacle speed for difficulty
     float bgSpeed = speed;
@@ -795,12 +803,9 @@ void iDraw()
         break;
     case NAME_INPUT_STATE:
         iClear();
-        iSetColor(0, 0, 0);
-        iFilledRectangle(0, 0, windowedWidth, windowedHeight);
-        iSetColor(255, 255, 255);
-        iText(100, 350, "ENTER YOUR NAME:", GLUT_BITMAP_TIMES_ROMAN_24);
-        iText(350, 350, playerName, GLUT_BITMAP_HELVETICA_18);
-        iText(300, 20, "Press ENTER to continue", GLUT_BITMAP_9_BY_15);
+        iShowImage(0, 0, "name.bmp");
+        iText(310, 230, playerName, GLUT_BITMAP_HELVETICA_18);
+        // iText(300, 20, "Press ENTER to continue", GLUT_BITMAP_9_BY_15);
         break;
     case MENU_STATE:
         iShowImage(0, 0, homemenu);
@@ -813,16 +818,17 @@ void iDraw()
         break;
     case DIFFICULTY_STATE:
         iClear();
-        iSetColor(0, 0, 0);
-        iFilledRectangle(0, 0, windowedWidth, windowedHeight);
-        iSetColor(255, 255, 255);
-        iText(300, 350, "Select Difficulty", GLUT_BITMAP_TIMES_ROMAN_24);
-        iSetColor(0, 255, 0);
-        iText(300, 280, "Easy", GLUT_BITMAP_HELVETICA_18);
-        iSetColor(255, 255, 0);
-        iText(300, 240, "Medium", GLUT_BITMAP_HELVETICA_18);
-        iSetColor(255, 0, 0);
-        iText(300, 200, "Hard", GLUT_BITMAP_HELVETICA_18);
+        iShowImage(0, 0, "difficulty.bmp");
+        // iSetColor(0, 0, 0);
+        // iFilledRectangle(0, 0, windowedWidth, windowedHeight);
+        // iSetColor(255, 255, 255);
+        // iText(300, 350, "Select Difficulty", GLUT_BITMAP_TIMES_ROMAN_24);
+        // iSetColor(0, 255, 0);
+        // iText(300, 280, "Easy", GLUT_BITMAP_HELVETICA_18);
+        // iSetColor(255, 255, 0);
+        // iText(300, 240, "Medium", GLUT_BITMAP_HELVETICA_18);
+        // iSetColor(255, 0, 0);
+        // iText(300, 200, "Hard", GLUT_BITMAP_HELVETICA_18);
         break;
     case CREDITS_STATE:
         iShowImage(0, 0, credits);
@@ -863,19 +869,8 @@ void iDraw()
         updateHighScores(playerName, score);
         break;
     case PAUSED_STATE:
-        drawGameScreen();
-        iSetColor(0, 0, 0);
-        iFilledRectangle(0, 0, windowedWidth, windowedHeight);
-        iSetColor(255, 255, 255);
-        iText(350, 350, "PAUSED", GLUT_BITMAP_TIMES_ROMAN_24);
-        iSetColor(0, 255, 0);
-        iText(350, 280, "Resume", GLUT_BITMAP_HELVETICA_18);
-        iSetColor(0, 255, 0);
-        iText(350, 240, "Restart", GLUT_BITMAP_HELVETICA_18);
-        iSetColor(0, 255, 0);
-        iText(350, 200, "Main Menu", GLUT_BITMAP_HELVETICA_18);
-        iSetColor(255, 255, 0);
-        iText(350, 160, "Difficulty", GLUT_BITMAP_HELVETICA_18);
+        iClear();
+        iShowImage(0, 0, "pos.bmp"); // Show only the 800x500 pos.bmp image
         break;
     case EXIT_STATE:
         exit(0);
@@ -906,7 +901,7 @@ void handleMenuClick(int mx, int my)
     // Difficulty selection
     if (currentGameState == DIFFICULTY_STATE)
     {
-        if (mx >= 300 && mx <= 380 && my >= 280 && my <= 300)
+        if (mx >= 280 && mx <= 520 && my >= 235 && my <= 290)
         {
             difficultyLevel = 1;
             nameCharIndex = 0;
@@ -914,7 +909,7 @@ void handleMenuClick(int mx, int my)
             resetGameState();
             currentGameState = NAME_INPUT_STATE;
         }
-        else if (mx >= 300 && mx <= 380 && my >= 240 && my <= 260)
+        else if (mx >= 280 && mx <= 520 && my >= 165 && my <= 225)
         {
             difficultyLevel = 2;
             nameCharIndex = 0;
@@ -922,7 +917,7 @@ void handleMenuClick(int mx, int my)
             resetGameState();
             currentGameState = NAME_INPUT_STATE;
         }
-        else if (mx >= 300 && mx <= 380 && my >= 200 && my <= 220)
+        else if (mx >= 280 && mx <= 520 && my >= 100 && my <= 155)
         {
             difficultyLevel = 3;
             nameCharIndex = 0;
@@ -989,7 +984,7 @@ void iMouse(int button, int state, int mx, int my)
                 break;
             case DIFFICULTY_STATE:
                 // Easy: x=300 to 380, y=280 to 300
-                if (mx >= 300 && mx <= 380 && my >= 280 && my <= 300)
+                if (mx >= 280 && mx <= 520 && my >= 235 && my <= 290)
                 {
                     difficultyLevel = 1;
                     nameCharIndex = 0;
@@ -998,7 +993,7 @@ void iMouse(int button, int state, int mx, int my)
                     currentGameState = NAME_INPUT_STATE;
                 }
                 // Medium: x=300 to 380, y=240 to 260
-                else if (mx >= 300 && mx <= 380 && my >= 240 && my <= 260)
+                else if (mx >= 280 && mx <= 520 && my >= 165 && my <= 225)
                 {
                     difficultyLevel = 2;
                     nameCharIndex = 0;
@@ -1007,7 +1002,7 @@ void iMouse(int button, int state, int mx, int my)
                     currentGameState = NAME_INPUT_STATE;
                 }
                 // Hard: x=300 to 380, y=200 to 220
-                else if (mx >= 300 && mx <= 380 && my >= 200 && my <= 220)
+                else if (mx >= 280 && mx <= 520 && my >= 100 && my <= 155)
                 {
                     difficultyLevel = 3;
                     nameCharIndex = 0;
@@ -1040,12 +1035,12 @@ void iMouse(int button, int state, int mx, int my)
                 break;
             case PAUSED_STATE:
                 // Resume button: x=350-20 to 350+80, y=280-10 to 280+20
-                if (mx >= 350 && mx <= 430 && my >= 280 && my <= 300)
+                if (mx >= 0 && mx <= 250 && my >= 310 && my <= 370)
                 {
                     changeGameState(PLAYING_STATE);
                 }
                 // Restart button: x=350-20 to 350+80, y=240-10 to 240+20
-                else if (mx >= 350 && mx <= 430 && my >= 240 && my <= 260)
+                else if (mx >= 0 && mx <= 240 && my >= 230 && my <= 275)
                 {
                     nameCharIndex = 0;
                     playerName[0] = '\0';
@@ -1053,13 +1048,13 @@ void iMouse(int button, int state, int mx, int my)
                     currentGameState = NAME_INPUT_STATE;
                 }
                 // Main Menu button: x=350-20 to 350+120, y=200-10 to 200+20
-                else if (mx >= 350 && mx <= 470 && my >= 200 && my <= 220)
+                else if (mx >= 0 && mx <= 290 && my >= 80 && my <= 130)
                 {
                     resetGameState();
                     changeGameState(MENU_STATE);
                 }
                 // Difficulty button: x=350-20 to 350+120, y=160-10 to 160+20
-                else if (mx >= 350 && mx <= 470 && my >= 160 && my <= 180)
+                else if (mx >= 0 && mx <= 260 && my >= 150 && my <= 210)
                 {
                     changeGameState(DIFFICULTY_STATE);
                 }
