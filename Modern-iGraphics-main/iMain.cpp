@@ -837,9 +837,9 @@ void iDraw()
         iShowImage(0, 0, "BG4.bmp");
         loadHighScores();
         iSetColor(0, 0, 0);
-        iText(300, 400, "Hall of Fame - Top 7", GLUT_BITMAP_TIMES_ROMAN_24);
+        iText(300, 400, "Hall of Fame - Top 3", GLUT_BITMAP_TIMES_ROMAN_24);
         iSetColor(0, 0, 0);
-        for (int i = 0; i < 7 && i < highScoreCount; i++)
+        for (int i = 0; i < 3 && i < highScoreCount; i++)
         {
             char entry[64];
             sprintf(entry, "%d. %s - %d", i + 1, highScores[i].name, highScores[i].score);
