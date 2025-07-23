@@ -722,7 +722,6 @@ void drawGameScreen()
         }
     }
 
-    // Show 100x100 char.png at right uppermost corner
     iShowLoadedImage(620, 390, &icon);
     iSetColor(255, 255, 255);
     char scoreText[32];
@@ -732,12 +731,7 @@ void drawGameScreen()
     sprintf(livesText, "%d", lives);
     iText(680, 454, livesText, GLUT_BITMAP_TIMES_ROMAN_24);
 
-    // char attackText[32];
-    // sprintf(attackText, "Attack: %d", attack);
-    // iText(650, 390, attackText, GLUT_BITMAP_HELVETICA_18);
-
-    // Always move background left and loop
-    // Background speed matches obstacle speed for difficulty
+    
     float bgSpeed = speed;
     if (difficultyLevel == 1)
     {
@@ -791,6 +785,7 @@ void drawGameScreen()
 //         }
 //     }
 // }
+
 
 void iDraw()
 {
