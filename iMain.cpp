@@ -21,6 +21,7 @@ int score = 0;
 int attack = 3; // Max 3 attacks
 void autoIncreaseScore();
 
+// High score structure
 typedef struct
 {
     char name[32];
@@ -178,9 +179,6 @@ int obstacleType = 0; // 0: rock, 1: slime
 char menuMusic[] = "Main.wav";
 char gameMusic[] = "Game.wav";
 char creditsMusic[] = "Credits.wav";
-char jumpSound[] = "jump.wav";
-char hurtSound[] = "hurt.wav";
-char hitSound[] = "hit.wav";
 bool moveLeft = false;
 bool moveRight = false;
 
@@ -225,11 +223,8 @@ typedef enum
     PAUSED_STATE,
     DEATH_MESSAGE_STATE,
     GAME_OVER_STATE,
-    EXIT_STATE,
-    SAVE_PROMPT_STATE
+    EXIT_STATE
 } GameState;
-
-void drawSavePrompt();
 
 typedef enum
 {
@@ -249,10 +244,9 @@ int direction = 1; // 1 for right, -1 for left
 int isMusicOn = 1;
 char *currentMusic = NULL;
 
-Image idleMonster[4], walkMonster[6], jumpMonster[8], attackMonster[7], hurtMonster[4];
-Image demonFrames[14];
+Image idleMonster[4], walkMonster[6], jumpMonster[8], attackMonster[7], hurtMonster[4], enemy[12];
 Image startScreenBgImg;
-Sprite monster, demon;
+Sprite monster, demon; // , enemy sprite commented out
 
 typedef struct
 {
@@ -271,6 +265,7 @@ Button menuButtons[] = {
 
 void loadResources();
 void updateMonster();
+void updateEnemy();
 void drawGameScreen();
 void handleMenuClick(int mx, int my);
 void handlePlayerMovement(unsigned char key);
@@ -279,8 +274,6 @@ void playMusic(char *filename, int loop);
 void stopMusic();
 void changeGameState(GameState newState);
 void updateCamera();
-void saveGame();
-void deleteSaveGame();
 
 void updateCamera()
 {
@@ -364,15 +357,15 @@ void loadResources()
 
     iLoadFramesFromSheet(attackMonster, "ATTACK.png", 1, 7);
 
-    iLoadFramesFromSheet(demonFrames, "demon.png", 1, 12);
+    iLoadFramesFromSheet(enemy, "Demon.png", 1, 12);     // Load demon frames
     iLoadFramesFromSheet(hurtMonster, "HURT.png", 1, 4); // Load hurt frames
     iLoadImage(&bg, "BG.bmp");
-    // printf("Loaded BG.bmp: %dx%d\n", bg.width, bg.height);
+    //printf("Loaded BG.bmp: %dx%d\n", bg.width, bg.height);
     iLoadImage(&bg2, "BG1.bmp");
-    // printf("Loaded BG1.bmp: %dx%d\n", bg2.width, bg2.height);
+    //printf("Loaded BG1.bmp: %dx%d\n", bg2.width, bg2.height);
     iResizeImage(&bg2, 800, 500);
-    iLoadImage(&bg3, "BG2.bmp");
-    // printf("Loaded BG3.bmp: %dx%d\n", bg3.width, bg3.height);
+    iLoadImage(&bg3, "BG3.bmp");
+    //printf("Loaded BG3.bmp: %dx%d\n", bg3.width, bg3.height);
 
     iLoadImage(&rockEasy, "rock0.png");
 
@@ -400,15 +393,10 @@ void loadResources()
     iScaleSprite(&monster, 3);
 
     iInitSprite(&demon, -1);
-
-    iChangeSpriteFrames(&demon, demonFrames, 12);
-    iSetSpritePosition(&demon, 900, 45); // Start off-screen right
-    iScaleSprite(&demon, 2);
+    // iChangeSpriteFrames(&demon, enemy, 12);
+    iSetSpritePosition(&demon, 500, 25);
+    iScaleSprite(&demon, 1);
 }
-// Demon state variables must be global for linker
-int demonActive = 1;
-int demonVanishTimer = 0;
-
 void updateMonster()
 {
     switch (animState)
@@ -464,88 +452,128 @@ void updateMonster()
         }
         iAnimateSprite(&monster);
     }
-
-    // Demon logic: walks left, resets if off screen or killed
-    if (demonActive)
-    {
-        iAnimateSprite(&demon);
-        demon.x -= 8; // Demon speed increased
-        if (demon.x < -100)
-        {
-            demon.x = 900 + rand() % 200;
-            demonActive = 1;
-            demonVanishTimer = 0;
-            iSetSpritePosition(&demon, demon.x, demon.y);
-        }
-        // Collision with player
-        int demon_left = demon.x;
-        int demon_right = demon.x + 80;
-        int player_left = sprite_x;
-        int player_right = sprite_x + monsterWidth;
-        bool is_on_ground = (monster.y == 0);
-        bool demon_collision = is_on_ground && demon_right > player_left && demon_left < player_right && abs(demon.y - monster.y) < 60;
-        if (demon_collision && demonVanishTimer == 0)
-        {
-            if (attackWindow > 0 && attack > 0)
-            {
-                demonVanishTimer = 20; // Demon vanishes for 20 frames
-                demonActive = 0;
-                demon.x = 900 + rand() % 200;
-                iSetSpritePosition(&demon, demon.x, demon.y);
-                score += 30;
-                attack--;
-                attackWindow = 0;
-            }
-            else
-            {
-                lives--;
-                iPlaySound(hitSound, 0);
-                demonVanishTimer = 20;
-                demonActive = 0;
-                demon.x = 900 + rand() % 200;
-                iSetSpritePosition(&demon, demon.x, demon.y);
-                sprite_x = 43;
-                monster.y = 0;
-                iSetSpritePosition(&monster, sprite_x, monster.y);
-                animState = HURT_ANIM;
-                iChangeSpriteFrames(&monster, hurtMonster, 4);
-                if (lives <= 0)
-                {
-                    currentGameState = DEATH_MESSAGE_STATE;
-                    return;
-                }
-            }
-        }
-    }
-    else if (demonVanishTimer > 0)
-    {
-        demonVanishTimer--;
-        if (demonVanishTimer == 0)
-        {
-            demonActive = 1;
-            demon.x = 900 + rand() % 200;
-            iSetSpritePosition(&demon, demon.x, demon.y);
-        }
-    }
+    // Update demon enemies
+    updateEnemy();
 }
 
 //
 //     void spawnEnemy()
-// {
-//     for (int i = 0; i < MAX_ENEMIES; i++)
-//     {
-//         if (!enemyActive[i])
-//         {
-//             iInitSprite(&enemies[i], -1);
-//             iChangeSpriteFrames(&enemies[i], enemy, 12);
-//             iSetSpritePosition(&enemies[i], 500-i, 25);
-//             iScaleSprite(&enemies[i], 1.0);
-//             //enemies[i].x = -1;
-//             enemyActive[i] = true;
-//             break;
-//         }
-//     }
-// }
+
+void spawnEnemy()
+{
+    for (int i = 0; i < MAX_ENEMIES; i++)
+    {
+        if (!enemyActive[i])
+        {
+            iInitSprite(&enemies[i], -1);
+            iChangeSpriteFrames(&enemies[i], enemy, 12);
+            int spawnX = 500;                            // fixed position for visibility
+            iSetSpritePosition(&enemies[i], spawnX, 25); // ground level
+            enemies[i].x = spawnX;
+            enemies[i].y = 25;
+            iScaleSprite(&enemies[i], 2.0);
+            enemyActive[i] = true;
+            enemyVanishTimer[i] = 0;
+            break;
+        }
+    }
+}
+
+void updateEnemy()
+{
+    if (difficultyLevel == 1 || difficultyLevel == 2)
+    {
+        // Count active enemies
+        int activeEnemies = 0;
+        for (int i = 0; i < MAX_ENEMIES; i++)
+            if (enemyActive[i])
+                activeEnemies++;
+
+        // If no active enemies, spawn a new one immediately
+        if (activeEnemies == 0)
+        {
+            spawnEnemy();
+            enemySpawnTimer = 0;
+        }
+        else
+        {
+            enemySpawnTimer++;
+            int spawnInterval = (difficultyLevel == 1) ? 600 : 400;
+            if (enemySpawnTimer >= spawnInterval)
+            {
+                spawnEnemy();
+                enemySpawnTimer = 0;
+            }
+        }
+        float enemySpeed = speed + 4; // Increase enemy speed for easy/medium
+        for (int i = 0; i < MAX_ENEMIES; i++)
+        {
+            if (enemyActive[i])
+            {
+                iAnimateSprite(&enemies[i]);
+                // Move enemy towards player faster
+                enemies[i].x -= enemySpeed;
+                iSetSpritePosition(&enemies[i], enemies[i].x, enemies[i].y);
+                int playerWorldX = sprite_x + cameraX;
+                // Collision and vanish logic
+                if (enemyVanishTimer[i] == 0 && abs(enemies[i].x - playerWorldX) < 40 && abs(enemies[i].y - monster.y) < 60)
+                {
+                    if (attackWindow > 0)
+                    {
+                        enemyVanishTimer[i] = ENEMY_VANISH_DELAY;
+                        enemyActive[i] = false;
+                        score += 20;
+                        attackWindow = 0;
+                        // Immediately spawn next enemy
+                        enemySpawnTimer = 0;
+                    }
+                    else
+                    {
+                        lives--;
+                        enemyVanishTimer[i] = ENEMY_VANISH_DELAY;
+                        enemyActive[i] = false;
+                        sprite_x = 43;
+                        monster.y = 0;
+                        iSetSpritePosition(&monster, sprite_x, monster.y);
+                        animState = HURT_ANIM;
+                        iChangeSpriteFrames(&monster, hurtMonster, 4);
+                        if (lives <= 0)
+                        {
+                            currentGameState = DEATH_MESSAGE_STATE;
+                            return;
+                        }
+                        // Immediately spawn next enemy
+                        enemySpawnTimer = 0;
+                    }
+                }
+                if (enemyVanishTimer[i] > 0)
+                {
+                    enemyVanishTimer[i]--;
+                    if (enemyVanishTimer[i] == 0)
+                    {
+                        enemyActive[i] = false;
+                    }
+                }
+                if (enemies[i].x < -100)
+                {
+                    enemyActive[i] = false;
+                    enemyVanishTimer[i] = 0;
+                    // Immediately spawn next enemy
+                    enemySpawnTimer = 0;
+                }
+            }
+        }
+    }
+    else if (difficultyLevel == 3)
+    {
+        // Hard mode: no enemies
+        for (int i = 0; i < MAX_ENEMIES; i++)
+        {
+            enemyActive[i] = false;
+            enemyVanishTimer[i] = 0;
+        }
+    }
+}
 // //
 void resetGameState()
 {
@@ -560,6 +588,7 @@ void resetGameState()
         enemyActive[i] = false;
         enemyVanishTimer[i] = 0;
     }
+    enemySpawnTimer = 0; // Reset spawn timer so enemies spawn again after interval
     score = 0;
     // Set difficulty defaults
     if (difficultyLevel == 1)
@@ -600,8 +629,7 @@ void drawStartScreen()
 
 void drawGameScreen()
 {
-
-    cameraX = 0;
+    updateCamera();
     // Smooth speed increase, capped at a max value
     float baseSpeed, speedFactor, maxSpeed;
     if (difficultyLevel == 1)
@@ -650,7 +678,6 @@ void drawGameScreen()
         if (trap_collision)
         {
             lives--;
-            iPlaySound(hitSound, 0);
             trap_active = 0;
             trap_x = 900 + rand() % 200;
             // Hurt animation
@@ -677,13 +704,6 @@ void drawGameScreen()
     }
     iSetSpritePosition(&monster, sprite_x, monster.y);
     iShowSprite(&monster);
-    // Draw demon if active
-    extern int demonActive;
-    if (demonActive)
-    {
-        iSetSpritePosition(&demon, demon.x, demon.y);
-        iShowSprite(&demon);
-    }
     for (int i = 0; i < MAX_ENEMIES; i++)
     {
         if (enemyActive[i])
@@ -719,8 +739,7 @@ void drawGameScreen()
             // Restore previous collision logic: rocks use central 25%, slimes use full bounding box
             int monster_left = sprite_x;
             int monster_right = sprite_x + monsterWidth;
-            int monster_top = monster.y + monsterWidth;
-            int monster_bottom = monster.y;
+            // Removed unused monster_top and monster_bottom
             int obs_left, obs_right, obs_top, obs_bottom;
             int ry = 50; // obstacle y position (fixed)
             if (obstacleType == 0)
@@ -881,7 +900,7 @@ void iDraw()
     case NAME_INPUT_STATE:
         iClear();
         iShowImage(0, 0, "name.bmp");
-        iText(350, 230, playerName, GLUT_BITMAP_HELVETICA_18);
+        iText(310, 230, playerName, GLUT_BITMAP_HELVETICA_18);
         // iText(300, 20, "Press ENTER to continue", GLUT_BITMAP_9_BY_15);
         break;
     case MENU_STATE:
@@ -952,9 +971,6 @@ void iDraw()
     case EXIT_STATE:
         exit(0);
         break;
-    case SAVE_PROMPT_STATE:
-        drawSavePrompt();
-        break;
     }
 }
 
@@ -985,7 +1001,7 @@ void handleMenuClick(int mx, int my)
         {
             difficultyLevel = 1;
             nameCharIndex = 0;
-            // Do NOT reset playerName here, keep last entered name
+            playerName[0] = '\0';
             resetGameState();
             currentGameState = NAME_INPUT_STATE;
         }
@@ -1026,35 +1042,15 @@ void handlePlayerMovement(unsigned char key)
 
 void iMouse(int button, int state, int mx, int my)
 {
-    if (currentGameState == SAVE_PROMPT_STATE && button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
-    {
-        if (mx >= 375 && mx <= 400 && my >= 260 && my <= 280)
-        {
-            // Yes: save and go to menu
-            saveGame();
-            printf("Game saved successfully!\n");
-            currentGameState = MENU_STATE;
-        }
-        else if (mx >= 375 && mx <= 400 && my >= 230 && my <= 250)
-        {
-            // No: just go to menu
-            deleteSaveGame();
-            // printf("Save deleted successfully!\n");
-            currentGameState = MENU_STATE;
-        }
-        return;
-    }
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
     {
         if (currentGameState == PLAYING_STATE)
         {
-            if (attack > 0)
-            {
-                animState = ATTACK_ANIM;
-                iChangeSpriteFrames(&monster, attackMonster, 7);
-                attackWindow = 8; // Attack duration is 8 frames (more forgiving)
-            }
-            // Enemy hit logic (does not consume attack)
+            // Unlimited attacks until character dies
+            animState = ATTACK_ANIM;
+            iChangeSpriteFrames(&monster, attackMonster, 7);
+            attackWindow = 8; // Attack duration is 8 frames
+            // Vanish all nearby enemies
             for (int i = 0; i < MAX_ENEMIES; i++)
             {
                 if (enemyActive[i])
@@ -1062,11 +1058,39 @@ void iMouse(int button, int state, int mx, int my)
                     int hitbox = 60;
                     if (abs(enemies[i].x - sprite_x) <= hitbox)
                     {
-                        enemyActive[i] = false; // Make enemy disappear immediately
+                        enemyActive[i] = false;
                         enemyVanishTimer[i] = 0;
-                        // score += 1;
-                        break;
+                        score += 20;
                     }
+                }
+            }
+            // Vanish obstacle if attacking and collision
+            if (stone_active == 1)
+            {
+                int monster_left = sprite_x;
+                int monster_right = sprite_x + monsterWidth;
+                int obs_left, obs_right;
+                int rx = stone_x - cameraX;
+                int ry = 50;
+                if (obstacleType == 0)
+                {
+                    obs_left = rx + stone_width * 3 / 8;
+                    obs_right = rx + stone_width * 5 / 8;
+                }
+                else
+                {
+                    obs_left = rx;
+                    obs_right = rx + slimeImg.width;
+                }
+                bool is_on_ground = (monster.y == 0);
+                bool horizontal_overlap = monster_right > obs_left && monster_left < obs_right;
+                bool collision = is_on_ground && horizontal_overlap;
+                if (collision)
+                {
+                    stone_active = 0;
+                    stone_x = 700 + rand() % 200;
+                    obstacleType = rand() % 2;
+                    score += 15;
                 }
             }
         }
@@ -1148,8 +1172,8 @@ void iMouse(int button, int state, int mx, int my)
                 // Main Menu button: x=350-20 to 350+120, y=200-10 to 200+20
                 else if (mx >= 0 && mx <= 290 && my >= 80 && my <= 130)
                 {
-                    // Instead of going directly to menu, show save prompt
-                    currentGameState = SAVE_PROMPT_STATE;
+                    resetGameState();
+                    changeGameState(MENU_STATE);
                 }
                 // Difficulty button: x=350-20 to 350+120, y=160-10 to 160+20
                 else if (mx >= 0 && mx <= 260 && my >= 150 && my <= 210)
@@ -1165,6 +1189,9 @@ void iMouse(int button, int state, int mx, int my)
                 break;
             case PLAYING_STATE:
                 // No action needed (handled above)
+                break;
+            case DEATH_MESSAGE_STATE:
+                // No action needed
                 break;
             case EXIT_STATE:
                 // No action needed
@@ -1215,7 +1242,6 @@ void iKeyboard(unsigned char key)
             // Use jump_peak for jump height
             MonstervelocityY = jump_peak;
             iChangeSpriteFrames(&monster, jumpMonster, 8);
-            iPlaySound(jumpSound, 0);
         }
         break;
     case 'f':
@@ -1278,14 +1304,13 @@ void iKeyboard(unsigned char key)
     case 27: // ESC key
         if (currentGameState == PLAYING_STATE || currentGameState == PAUSED_STATE)
         {
-            currentGameState = SAVE_PROMPT_STATE;
+            changeGameState(MENU_STATE);
         }
         else
         {
             changeGameState(EXIT_STATE);
         }
         break;
-        // (No case for SAVE_PROMPT_STATE here. drawSavePrompt is a function, not a case label or inline function.)
     }
 }
 
@@ -1301,7 +1326,6 @@ void iSpecialKeyboard(unsigned char key)
         // Left and right arrow key input disabled
     }
 }
-
 void iSpecialKeyboardUp(unsigned char key)
 {
     if (currentGameState == PLAYING_STATE)
@@ -1322,105 +1346,9 @@ void autoIncreaseScore()
     }
 }
 
-// --- Save/Load Game State ---
-#include <stdio.h>
-int hasSaveGame = 0;
-char saveFile[] = "saves/savegame.dat";
-
-typedef struct
-{
-    int score, lives, sprite_x, monster_y, MonstervelocityY, attack, difficultyLevel, demon_x, demon_y, demonActive, demonVanishTimer, obstacleType, stone_x, stone_active, trap_x, trap_active;
-    char playerName[32];
-} SaveGameState;
-
-void saveGame()
-{
-    FILE *f = fopen(saveFile, "wb");
-    if (!f)
-        return;
-    SaveGameState s;
-    s.score = score;
-    s.lives = lives;
-    s.sprite_x = sprite_x;
-    s.monster_y = monster.y;
-    s.MonstervelocityY = MonstervelocityY;
-    s.attack = attack;
-    s.difficultyLevel = difficultyLevel;
-    s.demon_x = demon.x;
-    s.demon_y = demon.y;
-    s.demonActive = demonActive;
-    s.demonVanishTimer = demonVanishTimer;
-    s.obstacleType = obstacleType;
-    s.stone_x = stone_x;
-    s.stone_active = stone_active;
-    s.trap_x = trap_x;
-    s.trap_active = trap_active;
-    strncpy(s.playerName, playerName, 32);
-    fwrite(&s, sizeof(s), 1, f);
-    fclose(f);
-}
-
-int loadGame()
-{
-    FILE *f = fopen(saveFile, "rb");
-    if (!f)
-        return 0;
-    SaveGameState s;
-    if (fread(&s, sizeof(s), 1, f) != 1)
-    {
-        fclose(f);
-        return 0;
-    }
-    fclose(f);
-    score = s.score;
-    lives = s.lives;
-    sprite_x = s.sprite_x;
-    monster.y = s.monster_y;
-    MonstervelocityY = s.MonstervelocityY;
-    attack = s.attack;
-    difficultyLevel = s.difficultyLevel;
-    demon.x = s.demon_x;
-    demon.y = s.demon_y;
-    demonActive = s.demonActive;
-    demonVanishTimer = s.demonVanishTimer;
-    obstacleType = s.obstacleType;
-    stone_x = s.stone_x;
-    stone_active = s.stone_active;
-    trap_x = s.trap_x;
-    trap_active = s.trap_active;
-    strncpy(playerName, s.playerName, 32);
-    return 1;
-}
-
-void checkSaveGame()
-{
-    FILE *f = fopen(saveFile, "rb");
-    hasSaveGame = (f != NULL);
-    if (f)
-        fclose(f);
-}
-
-void deleteSaveGame()
-{
-    remove(saveFile);
-    hasSaveGame = 0;
-}
-
-void drawSavePrompt()
-{
-    iClear();
-    iSetColor(255, 255, 255);
-    iFilledRectangle(250, 200, 300, 150);
-    iSetColor(0, 0, 0);
-    iText(270, 300, "Save game before exiting?", GLUT_BITMAP_TIMES_ROMAN_24);
-    iText(370, 260, "Yes", GLUT_BITMAP_HELVETICA_18);
-    iText(375, 230, "No", GLUT_BITMAP_HELVETICA_18);
-}
-
 int main(int argc, char *argv[])
 {
     glutInit(&argc, argv);
-    iInitializeSound(); // Initialize the sound system before any sound is played
     loadResources();
     iSetTimer(100, updateMonster);
     iSetTimer(2000, autoIncreaseScore); // Increase score every 2 seconds

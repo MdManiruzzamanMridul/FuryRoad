@@ -15,7 +15,6 @@
 // Include POSIX or Linux-specific headers if needed
 #include <unistd.h>
 #endif
-
 #include "glut.h"
 #include "freeglut_ext.h"
 #include <time.h>
