@@ -1,6 +1,9 @@
 int attackWindow = 0;
 #include "OpenGL/include/glut.h"
-
+// --- Save/Load Game State ---
+#include <stdio.h>
+int hasSaveGame = 0;
+char saveFile[] = "saves/savegame.dat";
 // Fullscreen toggle state
 int difficultyLevel = 1; // 1: Easy, 2: Medium, 3: Hard
 int rockAmount = 1;
@@ -226,11 +229,29 @@ typedef enum
     DEATH_MESSAGE_STATE,
     GAME_OVER_STATE,
     EXIT_STATE,
-    SAVE_PROMPT_STATE
+    SAVE_PROMPT_STATE,
+    CONTINUE_PROMPT_STATE
 } GameState;
 
+// Function prototypes
 void drawSavePrompt();
+void drawContinuePrompt();
+void checkSaveGame();
+int loadGame();
 
+// Draw the continue/resume prompt (move out of iMouse)
+void drawContinuePrompt()
+{
+    if (!hasSaveGame)
+        return; // Only draw if a save exists
+    iClear();
+    iSetColor(255, 255, 255);
+    iFilledRectangle(250, 180, 320, 140);
+    iSetColor(0, 0, 0);
+    iText(270, 280, "Resume previous game?", GLUT_BITMAP_TIMES_ROMAN_24);
+    iText(325, 230, "Yes", GLUT_BITMAP_HELVETICA_18);
+    iText(330, 200, "No", GLUT_BITMAP_HELVETICA_18);
+}
 typedef enum
 {
     IDLE_ANIM,
@@ -371,8 +392,8 @@ void loadResources()
     iLoadImage(&bg2, "BG1.bmp");
     // printf("Loaded BG1.bmp: %dx%d\n", bg2.width, bg2.height);
     iResizeImage(&bg2, 800, 500);
-    iLoadImage(&bg3, "BG2.bmp");
-    // printf("Loaded BG3.bmp: %dx%d\n", bg3.width, bg3.height);
+    iLoadImage(&bg3, "BG3.bmp");
+    printf("Loaded BG3.bmp: %dx%d\n", bg3.width, bg3.height);
 
     iLoadImage(&rockEasy, "rock0.png");
 
@@ -955,6 +976,9 @@ void iDraw()
     case SAVE_PROMPT_STATE:
         drawSavePrompt();
         break;
+    case CONTINUE_PROMPT_STATE:
+        drawContinuePrompt();
+        break;
     }
 }
 
@@ -967,9 +991,17 @@ void handleMenuClick(int mx, int my)
         {
             if (btn.targetState == PLAYING_STATE)
             {
-                nameCharIndex = 0;
-                playerName[0] = '\0';
-                currentGameState = NAME_INPUT_STATE;
+                checkSaveGame();
+                if (hasSaveGame)
+                {
+                    currentGameState = CONTINUE_PROMPT_STATE;
+                }
+                else
+                {
+                    nameCharIndex = 0;
+                    playerName[0] = '\0';
+                    currentGameState = NAME_INPUT_STATE;
+                }
             }
             else
             {
@@ -1026,6 +1058,43 @@ void handlePlayerMovement(unsigned char key)
 
 void iMouse(int button, int state, int mx, int my)
 {
+    // Handle continue prompt
+    if (currentGameState == CONTINUE_PROMPT_STATE && button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
+    {
+        checkSaveGame();
+        if (!hasSaveGame)
+        {
+            // If no save exists, skip prompt and go to name input
+            nameCharIndex = 0;
+            playerName[0] = '\0';
+            currentGameState = NAME_INPUT_STATE;
+            return;
+        }
+        // Yes: Resume previous game
+        if (mx >= 325 && mx <= 400 && my >= 230 && my <= 250)
+        {
+            if (loadGame())
+            {
+                currentGameState = PLAYING_STATE;
+            }
+            else
+            {
+                // If load fails, go to name input
+                nameCharIndex = 0;
+                playerName[0] = '\0';
+                currentGameState = NAME_INPUT_STATE;
+            }
+        }
+        // No: Start new game
+        else if (mx >= 330 && mx <= 400 && my >= 200 && my <= 220)
+        {
+            nameCharIndex = 0;
+            playerName[0] = '\0';
+            resetGameState();
+            currentGameState = NAME_INPUT_STATE;
+        }
+        return;
+    }
     if (currentGameState == SAVE_PROMPT_STATE && button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
     {
         if (mx >= 375 && mx <= 400 && my >= 260 && my <= 280)
@@ -1200,6 +1269,7 @@ void iKeyboard(unsigned char key)
     if (currentGameState == DEATH_MESSAGE_STATE)
     {
         currentGameState = GAME_OVER_STATE;
+        deleteSaveGame(); // Remove save after game over
         return;
     }
     switch (key)
@@ -1322,11 +1392,6 @@ void autoIncreaseScore()
     }
 }
 
-// --- Save/Load Game State ---
-#include <stdio.h>
-int hasSaveGame = 0;
-char saveFile[] = "saves/savegame.dat";
-
 typedef struct
 {
     int score, lives, sprite_x, monster_y, MonstervelocityY, attack, difficultyLevel, demon_x, demon_y, demonActive, demonVanishTimer, obstacleType, stone_x, stone_active, trap_x, trap_active;
@@ -1422,8 +1487,9 @@ int main(int argc, char *argv[])
     glutInit(&argc, argv);
     iInitializeSound(); // Initialize the sound system before any sound is played
     loadResources();
+    deleteSaveGame(); // Ensure no save exists at start
     iSetTimer(100, updateMonster);
-    iSetTimer(2000, autoIncreaseScore); // Increase score every 2 seconds
+    iSetTimer(1500, autoIncreaseScore); // Increase score every 1.5 seconds
     playMusic(menuMusic, 1);
     iInitialize(windowedWidth, windowedHeight, "Hellfire");
     return 0;
