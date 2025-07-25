@@ -391,9 +391,9 @@ void loadResources()
     // printf("Loaded BG.bmp: %dx%d\n", bg.width, bg.height);
     iLoadImage(&bg2, "BG1.bmp");
     // printf("Loaded BG1.bmp: %dx%d\n", bg2.width, bg2.height);
-    iResizeImage(&bg2, 800, 500);
+    // iResizeImage(&bg2, 800, 500);
     iLoadImage(&bg3, "BG3.bmp");
-    printf("Loaded BG3.bmp: %dx%d\n", bg3.width, bg3.height);
+    // printf("Loaded BG3.bmp: %dx%d\n", bg3.width, bg3.height);
 
     iLoadImage(&rockEasy, "rock0.png");
 
@@ -950,8 +950,7 @@ void iDraw()
         break;
     case DEATH_MESSAGE_STATE:
         iClear();
-        iSetColor(0, 0, 255);
-        iText(250, 250, "<Death is the only way out>", GLUT_BITMAP_TIMES_ROMAN_24);
+        iShowImage(0, 0, "deathm.bmp");
         break;
     case GAME_OVER_STATE:
         iClear();
@@ -1058,6 +1057,14 @@ void handlePlayerMovement(unsigned char key)
 
 void iMouse(int button, int state, int mx, int my)
 {
+    // Any mouse click in death message state goes to game over
+    if (currentGameState == DEATH_MESSAGE_STATE && state == GLUT_DOWN)
+    {
+        currentGameState = GAME_OVER_STATE;
+        deleteSaveGame();
+        return;
+    }
+
     // Handle continue prompt
     if (currentGameState == CONTINUE_PROMPT_STATE && button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
     {
