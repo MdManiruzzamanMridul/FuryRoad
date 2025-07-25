@@ -280,6 +280,7 @@ int dragonActive = 1;
 int dragonVanishTimer = 0;
 int dragonY = 200; // Centered vertically (adjusted for sprite height)
 int dragonSpeed = 8;
+int demonSpeed = 8;
 
 typedef struct
 {
@@ -452,7 +453,15 @@ void updateMonster()
         dragon.x -= dragonSpeed;
         if (dragon.x < -100)
         {
-            dragon.x = 900 + rand() % 200;
+            // Generate a new position for the dragon that does not overlap with demon
+            int newDragonX;
+            int attempts = 0;
+            do
+            {
+                newDragonX = 900 + rand() % 200;
+                attempts++;
+            } while (abs(newDragonX - demon.x) < 120 && attempts < 10); // Ensure at least 120px apart
+            dragon.x = newDragonX;
             dragonActive = 1;
             dragonVanishTimer = 0;
             iSetSpritePosition(&dragon, dragon.x, dragonY);
@@ -460,22 +469,32 @@ void updateMonster()
         // Collision with player (flying, so check y overlap as well)
         int dragon_left = dragon.x;
         int dragon_right = dragon.x + 80;
-        int player_left = sprite_x;
-        int player_right = sprite_x + monsterWidth;
         int dragon_top = dragon.y + 60;
         int dragon_bottom = dragon.y;
+        int player_left = sprite_x;
+        int player_right = sprite_x + monsterWidth;
         int player_top = monster.y + monsterWidth;
         int player_bottom = monster.y;
         bool horizontal_overlap = dragon_right > player_left && dragon_left < player_right;
-        bool vertical_overlap = dragon_top > player_bottom && dragon_bottom < player_top;
-        bool dragon_collision = horizontal_overlap && vertical_overlap;
+        // Proper vertical collision: overlap must be positive
+        int vertical_overlap = (dragon_top < player_top ? dragon_top : player_top) - (dragon_bottom > player_bottom ? dragon_bottom : player_bottom);
+        bool vertical_overlap_ok = vertical_overlap > 0;
+        bool dragon_collision = horizontal_overlap && vertical_overlap_ok;
         if (dragon_collision && dragonVanishTimer == 0)
         {
             if (attackWindow > 0 && attack > 0)
             {
                 dragonVanishTimer = 20; // Dragon vanishes for 20 frames
                 dragonActive = 0;
-                dragon.x = 900 + rand() % 200;
+                // Generate a new position for the dragon that does not overlap with demon
+                int newDragonX;
+                int attempts = 0;
+                do
+                {
+                    newDragonX = 900 + rand() % 200;
+                    attempts++;
+                } while (abs(newDragonX - demon.x) < 120 && attempts < 10);
+                dragon.x = newDragonX;
                 iSetSpritePosition(&dragon, dragon.x, dragonY);
                 score += 40;
                 attack--;
@@ -487,7 +506,15 @@ void updateMonster()
                 iPlaySound(hitSound, 0);
                 dragonVanishTimer = 20;
                 dragonActive = 0;
-                dragon.x = 900 + rand() % 200;
+                // Generate a new position for the dragon that does not overlap with demon
+                int newDragonX;
+                int attempts = 0;
+                do
+                {
+                    newDragonX = 900 + rand() % 200;
+                    attempts++;
+                } while (abs(newDragonX - demon.x) < 120 && attempts < 10);
+                dragon.x = newDragonX;
                 iSetSpritePosition(&dragon, dragon.x, dragonY);
                 sprite_x = 43;
                 monster.y = 0;
@@ -508,7 +535,15 @@ void updateMonster()
         if (dragonVanishTimer == 0)
         {
             dragonActive = 1;
-            dragon.x = 900 + rand() % 200;
+            // Generate a new position for the dragon that does not overlap with demon
+            int newDragonX;
+            int attempts = 0;
+            do
+            {
+                newDragonX = 900 + rand() % 200;
+                attempts++;
+            } while (abs(newDragonX - demon.x) < 120 && attempts < 10);
+            dragon.x = newDragonX;
             iSetSpritePosition(&dragon, dragon.x, dragonY);
         }
     }
@@ -571,10 +606,18 @@ void updateMonster()
     if (demonActive)
     {
         iAnimateSprite(&demon);
-        demon.x -= 8; // Demon speed increased
+        demon.x -= demonSpeed;
         if (demon.x < -100)
         {
-            demon.x = 900 + rand() % 200;
+            // Generate a new position for the demon that does not overlap with dragon
+            int newDemonX;
+            int attempts = 0;
+            do
+            {
+                newDemonX = 900 + rand() % 200;
+                attempts++;
+            } while (abs(newDemonX - dragon.x) < 120 && attempts < 10); // Ensure at least 120px apart
+            demon.x = newDemonX;
             demonActive = 1;
             demonVanishTimer = 0;
             iSetSpritePosition(&demon, demon.x, demon.y);
@@ -592,7 +635,15 @@ void updateMonster()
             {
                 demonVanishTimer = 20; // Demon vanishes for 20 frames
                 demonActive = 0;
-                demon.x = 900 + rand() % 200;
+                // Generate a new position for the demon that does not overlap with dragon
+                int newDemonX;
+                int attempts = 0;
+                do
+                {
+                    newDemonX = 900 + rand() % 200;
+                    attempts++;
+                } while (abs(newDemonX - dragon.x) < 120 && attempts < 10);
+                demon.x = newDemonX;
                 iSetSpritePosition(&demon, demon.x, demon.y);
                 score += 30;
                 attack--;
@@ -604,7 +655,15 @@ void updateMonster()
                 iPlaySound(hitSound, 0);
                 demonVanishTimer = 20;
                 demonActive = 0;
-                demon.x = 900 + rand() % 200;
+                // Generate a new position for the demon that does not overlap with dragon
+                int newDemonX;
+                int attempts = 0;
+                do
+                {
+                    newDemonX = 900 + rand() % 200;
+                    attempts++;
+                } while (abs(newDemonX - dragon.x) < 120 && attempts < 10);
+                demon.x = newDemonX;
                 iSetSpritePosition(&demon, demon.x, demon.y);
                 sprite_x = 43;
                 monster.y = 0;
@@ -625,7 +684,15 @@ void updateMonster()
         if (demonVanishTimer == 0)
         {
             demonActive = 1;
-            demon.x = 900 + rand() % 200;
+            // Generate a new position for the demon that does not overlap with dragon
+            int newDemonX;
+            int attempts = 0;
+            do
+            {
+                newDemonX = 900 + rand() % 200;
+                attempts++;
+            } while (abs(newDemonX - dragon.x) < 120 && attempts < 10);
+            demon.x = newDemonX;
             iSetSpritePosition(&demon, demon.x, demon.y);
         }
     }
@@ -669,24 +736,36 @@ void resetGameState()
         lives = 5; // Easy
         speed = 3;
         stone_y = 30;
+        dragonY = 200;    // Centered vertically
+        dragonActive = 1; // Reset dragon state
         rockAmount = 1;
         jump_peak = 40; // Much higher jump for easy mode
+        dragonSpeed = 8;
+        demonSpeed = 8;
     }
     else if (difficultyLevel == 2)
     {
         lives = 4; // Medium
         speed = 5;
         stone_y = 30;
+        dragonY = 170;    // Centered vertically
+        dragonActive = 1; // Reset dragon state
         rockAmount = 1;
         jump_peak = 30; // Much higher jump for medium mode
+        dragonSpeed = 10;
+        demonSpeed = 10;
     }
     else if (difficultyLevel == 3)
     {
         lives = 3; // Hard
         speed = 7;
         stone_y = 30;
+        dragonY = 140;    // Centered vertically
+        dragonActive = 1; // Reset dragon state
         rockAmount = 1;
         jump_peak = 25; // Much higher jump for hard mode
+        dragonSpeed = 12;
+        demonSpeed = 12;
     }
     attack = 3; // Reset attack to max
     // Randomize first obstacle type
@@ -754,7 +833,14 @@ void drawGameScreen()
             lives--;
             iPlaySound(hitSound, 0);
             trap_active = 0;
-            trap_x = 900 + rand() % 200;
+            // Respawn trap, ensure it does not overlap with stone_x
+            int newTrapX, attempts = 0;
+            do
+            {
+                newTrapX = 900 + rand() % 200;
+                attempts++;
+            } while (abs(newTrapX - stone_x) < 100 && attempts < 10);
+            trap_x = newTrapX;
             // Hurt animation
             sprite_x = 43;
             monster.y = 0;
@@ -769,7 +855,14 @@ void drawGameScreen()
         }
         if (trap_x < -trap_width)
         {
-            trap_x = 900 + rand() % 200;
+            // Respawn trap, ensure it does not overlap with stone_x
+            int newTrapX, attempts = 0;
+            do
+            {
+                newTrapX = 900 + rand() % 200;
+                attempts++;
+            } while (abs(newTrapX - stone_x) < 100 && attempts < 10);
+            trap_x = newTrapX;
             trap_active = 1;
         }
     }
@@ -866,8 +959,15 @@ void drawGameScreen()
                     if (attackWindow > 0 && attack > 0)
                     {
                         stone_active = 0;
-                        stone_x = 700 + rand() % 200; // Respawn obstacle
-                        obstacleType = rand() % 2;    // Randomize next obstacle
+                        // Respawn stone/slime, ensure it does not overlap with trap_x
+                        int newStoneX, attempts = 0;
+                        do
+                        {
+                            newStoneX = 700 + rand() % 200;
+                            attempts++;
+                        } while (abs(newStoneX - trap_x) < 100 && attempts < 10);
+                        stone_x = newStoneX;
+                        obstacleType = rand() % 2; // Randomize next obstacle
                         score += 15;
                         attack--;
                         attackWindow = 0;
@@ -884,8 +984,15 @@ void drawGameScreen()
                 if (lost_life)
                 {
                     stone_active = 0;
-                    stone_x = 700 + rand() % 200; // Respawn obstacle
-                    obstacleType = rand() % 2;    // Randomize next obstacle
+                    // Respawn stone/slime, ensure it does not overlap with trap_x
+                    int newStoneX, attempts = 0;
+                    do
+                    {
+                        newStoneX = 700 + rand() % 200;
+                        attempts++;
+                    } while (abs(newStoneX - trap_x) < 100 && attempts < 10);
+                    stone_x = newStoneX;
+                    obstacleType = rand() % 2; // Randomize next obstacle
                     // Reset monster position to initial area
                     sprite_x = 43;
                     monster.y = 0;
@@ -903,7 +1010,14 @@ void drawGameScreen()
             // If obstacle goes off screen, respawn
             if (stone_x < -stone_width)
             {
-                stone_x = 700 + rand() % 200; // 700 to 900
+                // Respawn stone/slime, ensure it does not overlap with trap_x
+                int newStoneX, attempts = 0;
+                do
+                {
+                    newStoneX = 700 + rand() % 200;
+                    attempts++;
+                } while (abs(newStoneX - trap_x) < 100 && attempts < 10);
+                stone_x = newStoneX;
                 stone_active = 1;
                 obstacleType = rand() % 2; // Randomize next obstacle
             }
@@ -1287,7 +1401,7 @@ void iMouse(int button, int state, int mx, int my)
                     nameCharIndex = 0;
                     playerName[0] = '\0';
                     resetGameState();
-                    currentGameState = PLAYING_STATE;
+                    currentGameState = NAME_INPUT_STATE;
                 }
                 // Menu button area: x=320-20 to 320+60, y=180-10 to 180+20
                 else if (mx >= 505 && mx <= 730 && my >= 10 && my <= 50)
@@ -1329,7 +1443,7 @@ void iMouse(int button, int state, int mx, int my)
                 // No action needed
                 break;
             case PLAYING_STATE:
-                // No action needed (handled above)
+                // No action needed
                 break;
             case EXIT_STATE:
                 // No action needed
