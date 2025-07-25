@@ -141,7 +141,7 @@ int lives = 3;
 
 //
 #define MAX_ENEMIES 10
-#define ENEMY_VANISH_DELAY 10
+#define ENEMY_VANISH_DELAY 5
 
 Sprite enemies[MAX_ENEMIES];
 bool enemyActive[MAX_ENEMIES];
@@ -279,7 +279,7 @@ Sprite monster, demon, dragon;
 int dragonActive = 1;
 int dragonVanishTimer = 0;
 int dragonY = 200; // Centered vertically (adjusted for sprite height)
-int dragonSpeed = 10;
+int dragonSpeed = 8;
 
 typedef struct
 {
