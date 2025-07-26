@@ -821,13 +821,28 @@ void drawGameScreen()
     {
         iShowLoadedImage(trap_x - cameraX, 45, &trapImg);
         trap_x -= speed;
-        // Trap collision logic
+        // Trap collision logic (compressed area: only when landing on top center of trap)
         int monster_left = sprite_x;
         int monster_right = sprite_x + monsterWidth;
-        int trap_left = trap_x;
-        int trap_right = trap_x + trap_width;
-        bool is_on_ground = (monster.y == 0);
-        bool trap_collision = is_on_ground && (monster_right > trap_left && monster_left < trap_right) && (monster.y <= trap_y + trap_height);
+        int monster_feet = monster.y;            // y position of feet
+        int trap_left = trap_x + trap_width / 4; // compress horizontal area to center half
+        int trap_right = trap_x + (3 * trap_width) / 4;
+        int trap_top = trap_y + trap_height;
+        int trap_bottom = trap_y;
+
+        // Check for horizontal overlap first
+        bool horizontal_overlap = (monster_right > trap_left && monster_left < trap_right);
+
+        // Two types of collision:
+        // 1. Landing on top of the trap (only when descending)
+        bool landing_collision = horizontal_overlap && (MonstervelocityY < 0) &&
+                                 (monster_feet >= trap_top - 10 && monster_feet <= trap_top + 10);
+
+        // 2. Going through the trap's center area (when on ground)
+        bool through_collision = horizontal_overlap && (monster.y == 0) &&
+                                 (monster_feet >= trap_bottom && monster_feet <= trap_top);
+
+        bool trap_collision = landing_collision || through_collision;
         if (trap_collision)
         {
             lives--;
@@ -1498,6 +1513,35 @@ void iKeyboard(unsigned char key)
             iPlaySound(jumpSound, 0);
         }
         break;
+    case 'x':
+    case 'X':
+        if (currentGameState == PLAYING_STATE)
+        {
+            if (attackWindow == 0)
+            {
+                animState = ATTACK_ANIM;
+                iChangeSpriteFrames(&monster, attackMonster, 7);
+                attackWindow = 8;          // Attack duration is 8 frames (more forgiving)
+                iPlaySound(swordSound, 0); // Play sword attack sound
+                // No attack decrement, unlimited attacks
+            }
+            // Enemy hit logic (does not consume attack)
+            for (int i = 0; i < MAX_ENEMIES; i++)
+            {
+                if (enemyActive[i])
+                {
+                    int hitbox = 60;
+                    if (abs(enemies[i].x - sprite_x) <= hitbox)
+                    {
+                        enemyActive[i] = false; // Make enemy disappear immediately
+                        enemyVanishTimer[i] = 0;
+                        // score += 1;
+                        break;
+                    }
+                }
+            }
+        }
+        break;
     case 'f':
     case 'F':
         // Toggle fullscreen
@@ -1554,7 +1598,6 @@ void iKeyboard(unsigned char key)
             currentGameState = PLAYING_STATE;
         }
         break;
-    case 'x':
     case 27: // ESC key
         if (currentGameState == PLAYING_STATE || currentGameState == PAUSED_STATE)
         {
